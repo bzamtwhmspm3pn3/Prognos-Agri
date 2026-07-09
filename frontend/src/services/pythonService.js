@@ -1,6 +1,4 @@
-﻿// ⚠️ VERSÃO DE EMERGÊNCIA PARA APRESENTAÇÃO
-// URL fixa do Python (funciona independentemente de variáveis de ambiente)
-const PYTHON_API_URL = 'https://agrookuvanja-python.onrender.com';
+﻿const PYTHON_API_URL = process.env.REACT_APP_PYTHON_API_URL || 'https://prognos-agri-python.onrender.com';
 
 /**
  * Verifica saúde do serviço Python
