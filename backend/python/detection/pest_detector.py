@@ -46,20 +46,30 @@ class PestDetector:
 
     def detect(self, image, conf_threshold=0.6):
         """
-        Detecta pragas na imagem com maior rigor
+        Detecta pragas na imagem com parâmetros leves (otimizado para free tier)
         """
         if self.model is None:
             return []
         
         try:
-            # Executar inferência com parâmetros otimizados
+            import gc
+            gc.collect()
+            
+            # Reduzir resolução para economizar memória
+            h, w = image.shape[:2]
+            if max(h, w) > 640:
+                scale = 640 / max(h, w)
+                new_w, new_h = int(w * scale), int(h * scale)
+                image = cv2.resize(image, (new_w, new_h))
+            
+            # Executar inferência com parâmetros otimizados para free tier
             results = self.model(
                 image, 
-                imgsz=640, 
+                imgsz=320,  # Reduzido de 640 para 320 (menos memória)
                 conf=conf_threshold,
                 iou=self.iou_threshold,
                 verbose=False,
-                max_det=10  # Máximo de 10 deteções por imagem
+                max_det=5,  # Reduzido de 10 para 5
             )
             
             detections = []
@@ -80,7 +90,7 @@ class PestDetector:
                         area = (x2 - x1) * (y2 - y1)
                         
                         # Filtrar deteções muito pequenas (ruído)
-                        if area < 1000:  # Ignorar deteções muito pequenas
+                        if area < 400:  # Reduzido para 320px de input
                             continue
                         
                         detections.append({
@@ -90,6 +100,9 @@ class PestDetector:
                             "bbox": [int(x1), int(y1), int(x2), int(y2)],
                             "area": int(area)
                         })
+            
+            # Libertar memória
+            gc.collect()
             
             # Log para debug
             if detections:

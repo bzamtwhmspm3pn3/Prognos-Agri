@@ -75,6 +75,7 @@ async def health():
 @app.post("/detect")
 async def detect(file: UploadFile = File(...)):
     start_time = time.time()
+    import gc
     
     if not detector:
         raise HTTPException(status_code=503, detail="Detector não inicializado")
@@ -87,12 +88,18 @@ async def detect(file: UploadFile = File(...)):
         raise HTTPException(status_code=400, detail="Tipo de ficheiro não suportado")
     
     try:
+        gc.collect()
         contents = await file.read()
         nparr = np.frombuffer(contents, np.uint8)
         img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+        del nparr
         
         detections = detector.detect(img)
+        del img
+        
         impact = detector.calculate_impact(detections)
+        
+        gc.collect()
         
         process_time = (time.time() - start_time) * 1000
         
@@ -106,6 +113,7 @@ async def detect(file: UploadFile = File(...)):
         }
     except Exception as e:
         logger.error(f"Erro na deteção: {e}")
+        gc.collect()
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/model-info")
