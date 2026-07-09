@@ -5,6 +5,12 @@ import numpy as np
 import os
 import logging
 
+try:
+    import torch
+    torch.set_num_threads(1)
+except:
+    pass
+
 logger = logging.getLogger(__name__)
 
 class PestDetector:
