@@ -2,16 +2,22 @@
 <html lang="pt">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
   <meta name="theme-color" content="#003366" />
-  <meta name="description" content="Prognos Agri 2.0 — Sistema Inteligente de Previsão e Gestão Agrícola" />
+  <meta name="description" content="Prognos Agri — Sistema Inteligente de Previsão e Gestão Agrícola com deteção de pragas por IA, monitoramento de campos e mercado agrícola" />
   <meta name="author" content="Venâncio Martins" />
   <meta name="keywords" content="agricultura, previsão, Angola, agritech, pragas, mercado agrícola" />
+  <meta name="application-name" content="Prognos Agri" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="Prognos Agri" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="format-detection" content="telephone=no" />
   <link rel="icon" type="image/x-icon" href="%PUBLIC_URL%/favicon_io/favicon.ico" />
   <link rel="icon" type="image/png" sizes="32x32" href="%PUBLIC_URL%/favicon_io/favicon-32x32.png" />
   <link rel="icon" type="image/png" sizes="16x16" href="%PUBLIC_URL%/favicon_io/favicon-16x16.png" />
   <link rel="apple-touch-icon" sizes="180x180" href="%PUBLIC_URL%/favicon_io/apple-touch-icon.png" />
-  <link rel="manifest" href="%PUBLIC_URL%/favicon_io/site.webmanifest" />
+  <link rel="manifest" href="%PUBLIC_URL%/manifest.json" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
@@ -20,5 +26,14 @@
 <body>
   <noscript>Você precisa activar JavaScript para usar o Prognos Agri.</noscript>
   <div id="root"></div>
+  <script>
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('/sw.js')
+          .then((reg) => console.log('SW registado:', reg.scope))
+          .catch((err) => console.warn('SW erro:', err));
+      });
+    }
+  </script>
 </body>
 </html>
