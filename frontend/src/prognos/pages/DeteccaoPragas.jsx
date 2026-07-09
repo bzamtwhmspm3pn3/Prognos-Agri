@@ -161,10 +161,19 @@ export default function DeteccaoPragas() {
 
     try {
       let data;
+      let usedMock = false;
       if (pythonStatus === 'online') {
-        data = await detectPestFromImage(imagem);
+        try {
+          data = await detectPestFromImage(imagem);
+        } catch (e) {
+          console.warn('API Python falhou, a usar fallback local:', e.message);
+          setPythonStatus('offline');
+          data = await mockDetectPestFromImage();
+          usedMock = true;
+        }
       } else {
         data = await mockDetectPestFromImage();
+        usedMock = true;
       }
 
       const detections = (data.detections || data.resultados || []).map(d => ({
@@ -185,7 +194,8 @@ export default function DeteccaoPragas() {
         detections,
         perdaEstimada: impacto.total,
         recomendacoes,
-        timestamp: new Date().toISOString()
+        timestamp: new Date().toISOString(),
+        modoSimulacao: usedMock || data.modoSimulacao || false
       };
 
       setResultado(novoResultado);

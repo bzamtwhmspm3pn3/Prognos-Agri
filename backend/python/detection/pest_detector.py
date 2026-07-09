@@ -10,7 +10,7 @@ logger = logging.getLogger(__name__)
 class PestDetector:
     def __init__(self, model_path=None):
         if model_path is None:
-            model_path = "yolov8n.pt"
+            model_path = os.path.join(os.path.dirname(__file__), "..", "api", "yolov8n.pt")
         
         try:
             self.model = YOLO(model_path)
