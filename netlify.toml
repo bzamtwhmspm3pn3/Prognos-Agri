@@ -1,0 +1,25 @@
+[build]
+  base = "frontend"
+  command = "npm run build"
+  publish = "build"
+
+[build.environment]
+  REACT_APP_API_URL = "https://prognos-agri-backend.onrender.com/api"
+  REACT_APP_PYTHON_API_URL = "https://prognos-agri-python.onrender.com"
+
+[[redirects]]
+  from = "/api/*"
+  to = "https://prognos-agri-backend.onrender.com/api/:splat"
+  status = 200
+  force = true
+
+[[redirects]]
+  from = "/python/*"
+  to = "https://prognos-agri-python.onrender.com/:splat"
+  status = 200
+  force = true
+
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200

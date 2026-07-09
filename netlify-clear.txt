@@ -1,0 +1,4 @@
+Prognos Agri 2.0 — Frontend Deploy
+Netlify Site: https://prognos-agri.netlify.app
+Build Command: cd frontend && npm run build
+Publish Directory: frontend/build

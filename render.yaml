@@ -1,0 +1,53 @@
+services:
+  - type: web
+    name: prognos-agri-backend
+    env: node
+    region: frankfurt
+    plan: free
+    rootDir: backend
+    buildCommand: npm install
+    startCommand: npm start
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 5000
+      - key: MONGO_URI
+        sync: false
+      - key: JWT_SECRET
+        sync: false
+      - key: FRONTEND_URL
+        value: https://prognos-agri-frontend.onrender.com
+      - key: PYTHON_API_URL
+        value: https://prognos-agri-python.onrender.com
+
+  - type: web
+    name: prognos-agri-python
+    env: python
+    region: frankfurt
+    plan: free
+    rootDir: backend
+    buildCommand: pip install -r python/requirements.txt
+    startCommand: python python/api/app.py
+    healthCheckPath: /health
+    envVars:
+      - key: PYTHON_UNBUFFERED
+        value: "1"
+
+  - type: web
+    name: prognos-agri-frontend
+    env: node
+    region: frankfurt
+    plan: free
+    rootDir: frontend
+    buildCommand: npm install && npm run build
+    startCommand: npx serve -s build -l $PORT
+    healthCheckPath: /
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: REACT_APP_API_URL
+        value: https://prognos-agri-backend.onrender.com/api
+      - key: REACT_APP_PYTHON_API_URL
+        value: https://prognos-agri-python.onrender.com

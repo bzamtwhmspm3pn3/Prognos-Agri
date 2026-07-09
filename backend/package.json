@@ -1,0 +1,43 @@
+{
+  "name": "prognos-agri-backend",
+  "version": "2.0.0",
+  "description": "Prognos Agri 2.0 — Sistema Inteligente de Previsão e Gestão Agrícola",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "nodemon server.js",
+    "migrate": "node scripts/migrate-agrookuvanja.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [
+    "agricultura",
+    "previsao",
+    "IA",
+    "Angola",
+    "agritech"
+  ],
+  "author": "Venâncio Martins",
+  "license": "MIT",
+  "dependencies": {
+    "axios": "^1.13.5",
+    "bcryptjs": "^2.4.3",
+    "compression": "^1.8.1",
+    "cors": "^2.8.6",
+    "dotenv": "^16.6.1",
+    "express": "^4.22.1",
+    "express-rate-limit": "^6.11.2",
+    "express-validator": "^7.3.1",
+    "form-data": "^4.0.5",
+    "helmet": "^7.2.0",
+    "jsonwebtoken": "^9.0.3",
+    "mongoose": "^7.8.9",
+    "multer": "^1.4.5-lts.1",
+    "node-cron": "^3.0.3",
+    "qrcode": "^1.5.3",
+    "sharp": "^0.32.6",
+    "uuid": "^9.0.1"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.13"
+  }
+}
