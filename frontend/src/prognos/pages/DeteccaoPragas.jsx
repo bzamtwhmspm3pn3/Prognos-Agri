@@ -130,7 +130,11 @@ export default function DeteccaoPragas() {
   const [historico, setHistorico] = useState([]);
   const [saving, setSaving] = useState(false);
   const [somAtivo, setSomAtivo] = useState(true);
+  const [cameraAtiva, setCameraAtiva] = useState(false);
+  const [erroCamera, setErroCamera] = useState(null);
   const fileInputRef = useRef(null);
+  const videoRef = useRef(null);
+  const streamRef = useRef(null);
 
   useEffect(() => {
     checkPythonHealth().then(status => {
@@ -140,7 +144,49 @@ export default function DeteccaoPragas() {
       const saved = JSON.parse(localStorage.getItem('prognos_deteccoes') || '[]');
       setHistorico(saved);
     } catch {}
+    return () => pararCamera();
   }, []);
+
+  const iniciarCamera = async () => {
+    setErroCamera(null);
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: 'environment', width: { ideal: 1280 }, height: { ideal: 720 } }
+      });
+      streamRef.current = stream;
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream;
+      }
+      setCameraAtiva(true);
+    } catch (err) {
+      console.error('Erro ao aceder à câmera:', err);
+      setErroCamera('Não foi possível aceder à câmera. Verifique as permissões.');
+    }
+  };
+
+  const pararCamera = () => {
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach(track => track.stop());
+      streamRef.current = null;
+    }
+    setCameraAtiva(false);
+  };
+
+  const capturarCamera = () => {
+    if (!videoRef.current) return;
+    const canvas = document.createElement('canvas');
+    canvas.width = videoRef.current.videoWidth;
+    canvas.height = videoRef.current.videoHeight;
+    const ctx = canvas.getContext('2d');
+    ctx.drawImage(videoRef.current, 0, 0);
+    canvas.toBlob((blob) => {
+      const file = new File([blob], `camera_${Date.now()}.jpg`, { type: 'image/jpeg' });
+      setImagem(file);
+      setPreviewUrl(URL.createObjectURL(blob));
+      setResultado(null);
+      pararCamera();
+    }, 'image/jpeg', 0.9);
+  };
 
   const handleFile = (file) => {
     if (!file) return;
@@ -299,50 +345,88 @@ export default function DeteccaoPragas() {
       <div className="grid-2" style={{ gap: '24px', alignItems: 'start' }}>
         <div>
           <PrognosCard title="Upload de Imagem" icon={<Camera size={18} />}>
-            <div
-              onDrop={handleDrop}
-              onDragOver={(e) => e.preventDefault()}
-              style={{
-                border: '2px dashed var(--border)',
-                borderRadius: 'var(--radius-lg)',
-                padding: '40px 20px',
-                textAlign: 'center',
-                cursor: 'pointer',
-                background: previewUrl ? 'transparent' : 'var(--bg-body)',
-                transition: 'all 0.3s ease',
-                marginBottom: '16px'
-              }}
-              onClick={() => fileInputRef.current?.click()}
-            >
-              {previewUrl ? (
-                <img src={previewUrl} alt="Preview" style={{
-                  maxWidth: '100%', maxHeight: '300px',
-                  borderRadius: 'var(--radius)', objectFit: 'contain'
-                }} />
-              ) : (
-                <>
-                  <Image size={48} style={{ color: 'var(--text-muted)', marginBottom: '12px' }} />
-                  <p style={{ color: 'var(--text-secondary)', fontWeight: 500, marginBottom: '4px' }}>
-                    Clique ou arraste uma imagem aqui
-                  </p>
-                  <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
-                    JPG, PNG ou WEBP • Máx 10MB
-                  </p>
-                </>
-              )}
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept="image/*"
-                style={{ display: 'none' }}
-                onChange={(e) => handleFile(e.target.files[0])}
-              />
-            </div>
+            {cameraAtiva ? (
+              <div style={{ marginBottom: '16px' }}>
+                <video
+                  ref={videoRef}
+                  autoPlay
+                  playsInline
+                  style={{
+                    width: '100%', maxHeight: '300px',
+                    borderRadius: 'var(--radius-lg)',
+                    objectFit: 'contain', background: '#000'
+                  }}
+                />
+                <div style={{ display: 'flex', gap: '12px', marginTop: '12px' }}>
+                  <button className="btn btn-secondary" onClick={pararCamera} style={{ flex: 1 }}>
+                    <X size={16} /> Cancelar
+                  </button>
+                  <button className="btn btn-primary" onClick={capturarCamera} style={{ flex: 1 }}>
+                    <Camera size={16} /> Capturar
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div
+                onDrop={handleDrop}
+                onDragOver={(e) => e.preventDefault()}
+                style={{
+                  border: '2px dashed var(--border)',
+                  borderRadius: 'var(--radius-lg)',
+                  padding: '40px 20px',
+                  textAlign: 'center',
+                  cursor: 'pointer',
+                  background: previewUrl ? 'transparent' : 'var(--bg-body)',
+                  transition: 'all 0.3s ease',
+                  marginBottom: '16px'
+                }}
+                onClick={() => !cameraAtiva && fileInputRef.current?.click()}
+              >
+                {previewUrl ? (
+                  <img src={previewUrl} alt="Preview" style={{
+                    maxWidth: '100%', maxHeight: '300px',
+                    borderRadius: 'var(--radius)', objectFit: 'contain'
+                  }} />
+                ) : (
+                  <>
+                    <Image size={48} style={{ color: 'var(--text-muted)', marginBottom: '12px' }} />
+                    <p style={{ color: 'var(--text-secondary)', fontWeight: 500, marginBottom: '4px' }}>
+                      Clique ou arraste uma imagem aqui
+                    </p>
+                    <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+                      JPG, PNG ou WEBP • Máx 10MB
+                    </p>
+                  </>
+                )}
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/*"
+                  style={{ display: 'none' }}
+                  onChange={(e) => handleFile(e.target.files[0])}
+                />
+              </div>
+            )}
+
+            {erroCamera && (
+              <div style={{
+                padding: '10px 12px', background: 'rgba(239,68,68,0.1)',
+                borderRadius: 'var(--radius)', marginBottom: '12px',
+                fontSize: '0.85rem', color: '#ef4444'
+              }}>
+                {erroCamera}
+              </div>
+            )}
 
             <div style={{ display: 'flex', gap: '12px' }}>
               {previewUrl && (
                 <button className="btn btn-ghost" onClick={() => { setImagem(null); setPreviewUrl(null); setResultado(null); }}>
                   <X size={16} /> Remover
+                </button>
+              )}
+              {!cameraAtiva && !previewUrl && (
+                <button className="btn btn-secondary" onClick={iniciarCamera} style={{ flex: 1 }}>
+                  <Camera size={16} /> Abrir Câmera
                 </button>
               )}
               <button
