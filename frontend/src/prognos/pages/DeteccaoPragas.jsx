@@ -7,6 +7,7 @@ import PrognosCard from '../components/PrognosCard';
 import { detectPestFromImage, checkPythonHealth, mockDetectPestFromImage } from '../../services/pythonService';
 import { deteccaoApi } from '../../services/deteccaoApi';
 import vozService from '../../services/vozService';
+import { getActiveCameras } from '../../services/cameraService';
 
 const nomesPortugues = {
   'bird': 'Pássaro', 'pigeon': 'Pombo', 'sparrow': 'Pardal',
@@ -132,9 +133,14 @@ export default function DeteccaoPragas() {
   const [somAtivo, setSomAtivo] = useState(true);
   const [cameraAtiva, setCameraAtiva] = useState(false);
   const [erroCamera, setErroCamera] = useState(null);
+  const [camerasIP, setCamerasIP] = useState([]);
+  const [cameraIPSelecionada, setCameraIPSelecionada] = useState(null);
+  const [ipCameraFeedAtiva, setIpCameraFeedAtiva] = useState(false);
+  const [ipCameraErro, setIpCameraErro] = useState(null);
   const fileInputRef = useRef(null);
   const videoRef = useRef(null);
   const streamRef = useRef(null);
+  const ipCameraImgRef = useRef(null);
 
   useEffect(() => {
     checkPythonHealth().then(status => {
@@ -144,6 +150,7 @@ export default function DeteccaoPragas() {
       const saved = JSON.parse(localStorage.getItem('prognos_deteccoes') || '[]');
       setHistorico(saved);
     } catch {}
+    setCamerasIP(getActiveCameras());
     return () => pararCamera();
   }, []);
 
@@ -185,6 +192,23 @@ export default function DeteccaoPragas() {
       setPreviewUrl(URL.createObjectURL(blob));
       setResultado(null);
       pararCamera();
+    }, 'image/jpeg', 0.9);
+  };
+
+  const capturarFrameIP = () => {
+    if (!ipCameraImgRef.current) return;
+    const img = ipCameraImgRef.current;
+    const canvas = document.createElement('canvas');
+    canvas.width = img.naturalWidth || 640;
+    canvas.height = img.naturalHeight || 480;
+    const ctx = canvas.getContext('2d');
+    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+    canvas.toBlob((blob) => {
+      const file = new File([blob], `ipcam_${Date.now()}.jpg`, { type: 'image/jpeg' });
+      setImagem(file);
+      setPreviewUrl(URL.createObjectURL(blob));
+      setResultado(null);
+      setIpCameraFeedAtiva(false);
     }, 'image/jpeg', 0.9);
   };
 
@@ -345,7 +369,8 @@ export default function DeteccaoPragas() {
       <div className="grid-2" style={{ gap: '24px', alignItems: 'start' }}>
         <div>
           <PrognosCard title="Upload de Imagem" icon={<Camera size={18} />}>
-            {cameraAtiva ? (
+            {/* Câmera do dispositivo */}
+            {cameraAtiva && (
               <div style={{ marginBottom: '16px' }}>
                 <video
                   ref={videoRef}
@@ -366,7 +391,50 @@ export default function DeteccaoPragas() {
                   </button>
                 </div>
               </div>
-            ) : (
+            )}
+
+            {/* Feed de câmara IP */}
+            {ipCameraFeedAtiva && cameraIPSelecionada && (
+              <div style={{ marginBottom: '16px' }}>
+                <div style={{
+                  position: 'relative',
+                  background: '#000', borderRadius: 'var(--radius-lg)',
+                  overflow: 'hidden', minHeight: '200px'
+                }}>
+                  <img
+                    ref={ipCameraImgRef}
+                    src={cameraIPSelecionada.url + '?t=' + Date.now()}
+                    style={{
+                      width: '100%', maxHeight: '300px',
+                      objectFit: 'contain'
+                    }}
+                    alt={`Feed ${cameraIPSelecionada.nome}`}
+                    onError={() => setIpCameraErro('Erro ao conectar à câmara IP')}
+                    crossOrigin="anonymous"
+                  />
+                </div>
+                {ipCameraErro && (
+                  <div style={{
+                    padding: '8px', background: 'rgba(239,68,68,0.1)',
+                    borderRadius: 'var(--radius)', marginTop: '8px',
+                    fontSize: '0.85rem', color: '#ef4444'
+                  }}>
+                    {ipCameraErro}
+                  </div>
+                )}
+                <div style={{ display: 'flex', gap: '12px', marginTop: '12px' }}>
+                  <button className="btn btn-secondary" onClick={() => { setIpCameraFeedAtiva(false); setIpCameraErro(null); }} style={{ flex: 1 }}>
+                    <X size={16} /> Cancelar
+                  </button>
+                  <button className="btn btn-primary" onClick={capturarFrameIP} style={{ flex: 1 }}>
+                    <Camera size={16} /> Capturar Frame
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Drop zone / Preview */}
+            {!cameraAtiva && !ipCameraFeedAtiva && (
               <div
                 onDrop={handleDrop}
                 onDragOver={(e) => e.preventDefault()}
@@ -380,7 +448,7 @@ export default function DeteccaoPragas() {
                   transition: 'all 0.3s ease',
                   marginBottom: '16px'
                 }}
-                onClick={() => !cameraAtiva && fileInputRef.current?.click()}
+                onClick={() => fileInputRef.current?.click()}
               >
                 {previewUrl ? (
                   <img src={previewUrl} alt="Preview" style={{
@@ -418,13 +486,43 @@ export default function DeteccaoPragas() {
               </div>
             )}
 
+            {/* Câmaras IP configuradas */}
+            {!cameraAtiva && !ipCameraFeedAtiva && !previewUrl && camerasIP.length > 0 && (
+              <div style={{ marginBottom: '12px' }}>
+                <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '8px', fontWeight: 500 }}>
+                  Câmaras configuradas:
+                </p>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                  {camerasIP.map(cam => (
+                    <button
+                      key={cam.id}
+                      onClick={() => { setCameraIPSelecionada(cam); setIpCameraFeedAtiva(true); setIpCameraErro(null); }}
+                      style={{
+                        display: 'flex', alignItems: 'center', gap: '10px',
+                        padding: '10px 12px', background: 'var(--bg-body)',
+                        border: '1px solid var(--border)', borderRadius: 'var(--radius)',
+                        cursor: 'pointer', textAlign: 'left', width: '100%'
+                      }}
+                    >
+                      <Camera size={16} color="var(--secondary)" />
+                      <div style={{ flex: 1 }}>
+                        <div style={{ fontWeight: 500, fontSize: '0.9rem' }}>{cam.nome}</div>
+                        <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{cam.localizacao || cam.url}</div>
+                      </div>
+                      <span style={{ fontSize: '0.75rem', color: 'var(--secondary)' }}>Usar →</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
             <div style={{ display: 'flex', gap: '12px' }}>
               {previewUrl && (
                 <button className="btn btn-ghost" onClick={() => { setImagem(null); setPreviewUrl(null); setResultado(null); }}>
                   <X size={16} /> Remover
                 </button>
               )}
-              {!cameraAtiva && !previewUrl && (
+              {!cameraAtiva && !ipCameraFeedAtiva && !previewUrl && (
                 <button className="btn btn-secondary" onClick={iniciarCamera} style={{ flex: 1 }}>
                   <Camera size={16} /> Abrir Câmera
                 </button>
