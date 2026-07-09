@@ -543,7 +543,18 @@ tr:hover td {
   .prognos-content { margin-left: 220px; }
 }
 
+.sidebar-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  z-index: 99;
+  background: rgba(0,0,0,0.4);
+}
+
 @media (max-width: 768px) {
+  .sidebar-overlay.visible {
+    display: block;
+  }
   .prognos-sidebar {
     width: 100%;
     position: fixed;

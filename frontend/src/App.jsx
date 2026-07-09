@@ -33,11 +33,16 @@ function PublicRoute({ children }) {
 
 function AppLayout() {
   const [collapsed, setCollapsed] = React.useState(false);
+  const { sidebarOpen, toggleSidebar } = usePrognos();
 
   return (
     <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
       <PrognosHeader />
       <div style={{ display: 'flex', flex: 1 }}>
+        <div
+          className={`sidebar-overlay ${sidebarOpen ? 'visible' : ''}`}
+          onClick={toggleSidebar}
+        />
         <PrognosSidebar collapsed={collapsed} onToggle={() => setCollapsed(!collapsed)} />
         <main className="prognos-content" style={{ width: '100%' }}>
           <Routes>

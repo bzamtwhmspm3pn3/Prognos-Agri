@@ -27,7 +27,7 @@ const menuItems = [
 export default function PrognosSidebar({ collapsed, onToggle }) {
   const navigate = useNavigate();
   const location = useLocation();
-  const { logout } = usePrognos();
+  const { logout, sidebarOpen, toggleSidebar } = usePrognos();
 
   const isActive = (path) => {
     return location.pathname.startsWith(path);
@@ -38,8 +38,13 @@ export default function PrognosSidebar({ collapsed, onToggle }) {
     navigate('/');
   };
 
+  const handleNav = (path) => {
+    navigate(path);
+    if (sidebarOpen) toggleSidebar();
+  };
+
   return (
-    <aside className={`prognos-sidebar ${collapsed ? 'collapsed' : ''}`}>
+    <aside className={`prognos-sidebar ${collapsed ? 'collapsed' : ''} ${sidebarOpen ? 'open' : ''}`}>
       <button
         onClick={onToggle}
         style={{
@@ -79,7 +84,7 @@ export default function PrognosSidebar({ collapsed, onToggle }) {
           <button
             key={item.path}
             className={`nav-item ${active ? 'active' : ''}`}
-            onClick={() => navigate(item.path)}
+            onClick={() => handleNav(item.path)}
             title={collapsed ? item.label : ''}
           >
             <Icon size={20} style={{ color: active ? 'white' : item.color }} />

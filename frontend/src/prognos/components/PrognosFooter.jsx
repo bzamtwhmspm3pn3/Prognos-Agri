@@ -1,7 +1,24 @@
 import React from 'react';
+import { useNavigate } from 'react-router-dom';
 import logoHeader from '../../assets/logo-header.png';
 
 export default function PrognosFooter() {
+  const navigate = useNavigate();
+
+  const links = [
+    { label: 'Dashboard', path: '/app/dashboard' },
+    { label: 'Detecção de Pragas', path: '/app/deteccao' },
+    { label: 'Previsão Climática', path: '/app/previsoes' },
+    { label: 'Mercado Agrícola', path: '/app/mercado' },
+    { label: 'Comunidade', path: '/app/comunidade' },
+    { label: 'Config. Câmaras', path: '/app/cameras' },
+  ];
+
+  const legais = [
+    { label: 'Termos de Uso', path: '/app/dashboard' },
+    { label: 'Política de Privacidade', path: '/app/dashboard' },
+  ];
+
   return (
     <footer className="prognos-footer">
       <div className="footer-content">
@@ -23,15 +40,19 @@ export default function PrognosFooter() {
         </div>
         <div className="footer-section">
           <h4>Links Úteis</h4>
-          <a href="/sobre">Sobre Nós</a>
-          <a href="/comunidade">Comunidade</a>
-          <a href="/previsoes">Previsão Climática</a>
-          <a href="/mercado">Mercado Agrícola</a>
+          {links.map(link => (
+            <span key={link.path} onClick={() => navigate(link.path)} style={{ cursor: 'pointer', display: 'block', fontSize: '0.85rem', color: 'rgba(255,255,255,0.6)', lineHeight: '1.8' }}>
+              {link.label}
+            </span>
+          ))}
         </div>
         <div className="footer-section">
           <h4>Legal</h4>
-          <a href="/termos">Termos de Uso</a>
-          <a href="/privacidade">Política de Privacidade</a>
+          {legais.map(link => (
+            <span key={link.path} onClick={() => navigate(link.path)} style={{ cursor: 'pointer', display: 'block', fontSize: '0.85rem', color: 'rgba(255,255,255,0.6)', lineHeight: '1.8' }}>
+              {link.label}
+            </span>
+          ))}
         </div>
       </div>
       <div className="footer-bottom">
