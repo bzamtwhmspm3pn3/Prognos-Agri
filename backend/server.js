@@ -20,6 +20,7 @@ const marketRoutes = require('./routes/market');
 const communityRoutes = require('./routes/community');
 const rastreabilidadeRoutes = require('./routes/rastreabilidade');
 
+const mercadoYangueProxy = require('./routes/mercadoYangueProxy');
 const errorHandler = require("./middleware/errorHandler");
 
 const app = express();
@@ -87,6 +88,7 @@ app.use('/api/predict', predictRoutes);
 app.use('/api/market', marketRoutes);
 app.use('/api/community', communityRoutes);
 app.use('/api/rastreabilidade', rastreabilidadeRoutes);
+app.use('/api/mercado-yangue', mercadoYangueProxy);
 
 app.get("/api/health", (req, res) => {
   res.status(200).json({
