@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { Users, MessageCircle, Heart, Share2, Eye, Plus, Search, Tag, X, Send, Loader, AlertCircle, ArrowLeft, LogIn, UserCheck, UserX, Shield } from 'lucide-react';
+import { Users, MessageCircle, Heart, Share2, Eye, Plus, Search, Tag, X, Send, Loader, AlertCircle, ArrowLeft, LogIn, UserCheck, UserX, Shield, FileText } from 'lucide-react';
 import PrognosCard from '../components/PrognosCard';
 import { usePrognos } from '../contexts/PrognosContext';
 import { listarPosts, criarPost, likePost, comentar, listarGrupos, criarGrupo, entrarGrupo, getTagsPopulares, listarMensagens, enviarMensagem, solicitarEntrada, aprovarMembro, removerMembro, getMensagensNaoLidas } from '../../services/communityService';
@@ -30,6 +30,9 @@ export default function Community() {
   const [msgTexto, setMsgTexto] = useState('');
   const [loadingMsgs, setLoadingMsgs] = useState(false);
   const [gruposDetalhe, setGruposDetalhe] = useState({});
+  const [showPublicarNoGrupo, setShowPublicarNoGrupo] = useState(false);
+  const [postGrupo, setPostGrupo] = useState({ titulo: '', conteudo: '', tipo: 'post', tags: '' });
+  const [submittingPost, setSubmittingPost] = useState(false);
   const chatEndRef = useRef(null);
 
   const carregarDados = useCallback(async () => {
@@ -84,6 +87,32 @@ export default function Community() {
   const voltarGrupos = () => {
     setChatGroup(null);
     setMensagens([]);
+    setShowPublicarNoGrupo(false);
+  };
+
+  const handlePublicarNoGrupo = async (e) => {
+    e.preventDefault();
+    if (!postGrupo.titulo.trim() || !postGrupo.conteudo.trim()) return;
+    try {
+      setSubmittingPost(true);
+      const tags = postGrupo.tags.split(',').map(t => t.trim()).filter(Boolean);
+      const res = await criarPost({
+        titulo: postGrupo.titulo,
+        conteudo: postGrupo.conteudo,
+        tipo: postGrupo.tipo,
+        grupo: chatGroup.nome,
+        tags
+      });
+      if (res.success) {
+        setPosts(prev => [res.data || res.post, ...prev]);
+        setPostGrupo({ titulo: '', conteudo: '', tipo: 'post', tags: '' });
+        setShowPublicarNoGrupo(false);
+      }
+    } catch (err) {
+      console.error('Erro ao publicar no feed:', err);
+    } finally {
+      setSubmittingPost(false);
+    }
   };
 
   const handleEnviarMsg = async (e) => {
@@ -216,17 +245,30 @@ export default function Community() {
     { id: 'publicar', label: 'Publicar' },
   ];
 
+  const getUserId = (m) => {
+    if (!m?.usuarioId) return null;
+    return typeof m.usuarioId === 'object' ? (m.usuarioId._id || m.usuarioId.toString()) : m.usuarioId.toString();
+  };
+
+  const getUserName = (m) => {
+    if (!m?.usuarioId) return 'Desconhecido';
+    if (typeof m.usuarioId === 'object') return m.usuarioId.username || m.usuarioId.profile?.nome || 'Anónimo';
+    return m.usuarioId.toString().substring(0, 6);
+  };
+
   const ehAdmin = (grupo) => {
     if (!user?._id || !grupo?._id) return false;
     const g = gruposDetalhe[grupo._id] || grupo;
-    return g.membros?.some(m => m.usuarioId?.toString() === user._id && (m.cargo === 'admin' || m.cargo === 'moderador')) ||
-           g.criador === user.username;
+    return g.membros?.some(m => {
+      const uid = getUserId(m);
+      return uid === user._id && (m.cargo === 'admin' || m.cargo === 'moderador');
+    }) || g.criador === user.username;
   };
 
   const ehMembro = (grupo) => {
     if (!user?._id) return false;
     const g = gruposDetalhe[grupo._id] || grupo;
-    return g.membros?.some(m => m.usuarioId?.toString() === user._id);
+    return g.membros?.some(m => getUserId(m) === user._id);
   };
 
   const renderMensagem = (msg, index) => {
@@ -300,7 +342,7 @@ export default function Community() {
     const isAdmin = ehAdmin(chatGroup);
     const isMember = ehMembro(chatGroup);
 
-    return (
+    return (<>
       <div style={{ display: 'flex', gap: '16px', height: 'calc(100vh - 200px)' }}>
         <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
           <div style={{
@@ -317,11 +359,18 @@ export default function Community() {
                 {membros.length} membro{membros.length !== 1 ? 's' : ''}
               </div>
             </div>
-            {!isMember && (
-              <button className="btn btn-primary btn-sm" onClick={() => handleEntrarGrupo(chatGroup)}>
-                <LogIn size={14} /> Entrar
-              </button>
-            )}
+            <div style={{ display: 'flex', gap: '8px' }}>
+              {isMember && (
+                <button className="btn btn-sm btn-outline" onClick={() => setShowPublicarNoGrupo(true)}>
+                  <FileText size={14} /> Publicar no Feed
+                </button>
+              )}
+              {!isMember && (
+                <button className="btn btn-primary btn-sm" onClick={() => handleEntrarGrupo(chatGroup)}>
+                  <LogIn size={14} /> Entrar
+                </button>
+              )}
+            </div>
           </div>
 
           <div style={{
@@ -380,14 +429,14 @@ export default function Community() {
                       alignItems: 'center', justifyContent: 'center',
                       fontSize: '0.65rem', fontWeight: 'bold', color: 'var(--text-secondary)'
                     }}>
-                      {(m.usuarioId?.username || m.usuarioId || 'A').toString().charAt(0).toUpperCase()}
+                      {(getUserName(m)).charAt(0).toUpperCase()}
                     </div>
-                    <span>{m.usuarioId?.username || m.usuarioId?.toString().substring(0, 6) || 'Desconhecido'}</span>
+                    <span>{getUserName(m)}</span>
                   </div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
                     {m.cargo === 'admin' && <Shield size={12} style={{ color: 'var(--accent)' }} />}
-                    {isAdmin && m.cargo !== 'admin' && m.usuarioId?.toString() !== user?._id && (
-                      <button onClick={() => handleRemover(chatGroup._id, m.usuarioId)}
+                    {isAdmin && m.cargo !== 'admin' && getUserId(m) !== user?._id && (
+                      <button onClick={() => handleRemover(chatGroup._id, getUserId(m))}
                         style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#ef4444', padding: '2px' }}>
                         <UserX size={12} />
                       </button>
@@ -410,8 +459,8 @@ export default function Community() {
                     padding: '4px 8px', borderRadius: '6px', fontSize: '0.8rem',
                     background: 'rgba(245,166,35,0.1)'
                   }}>
-                    <span>{p.usuarioId?.username || p.usuarioId?.toString().substring(0, 6) || 'Desconhecido'}</span>
-                    <button onClick={() => handleAprovar(chatGroup._id, p.usuarioId)}
+                    <span>{getUserName(p)}</span>
+                    <button onClick={() => handleAprovar(chatGroup._id, getUserId(p))}
                       className="btn btn-primary btn-sm" style={{ padding: '2px 8px', fontSize: '0.7rem' }}>
                       <UserCheck size={12} /> Aprovar
                     </button>
@@ -422,6 +471,59 @@ export default function Community() {
           )}
         </div>
       </div>
+
+      {showPublicarNoGrupo && (
+        <div className="modal-overlay" onClick={() => setShowPublicarNoGrupo(false)}>
+          <div className="modal-content" onClick={e => e.stopPropagation()}>
+            <div className="modal-header">
+              <h2 className="modal-title">📢 Publicar no Feed — {chatGroup.nome}</h2>
+              <button className="modal-close" onClick={() => setShowPublicarNoGrupo(false)}>✕</button>
+            </div>
+            <form onSubmit={handlePublicarNoGrupo} style={{ display: 'grid', gap: '16px' }}>
+              <div className="input-group">
+                <label className="input-label">Título</label>
+                <input type="text" className="input" placeholder="Título da publicação" required
+                  value={postGrupo.titulo}
+                  onChange={e => setPostGrupo(prev => ({ ...prev, titulo: e.target.value }))} />
+              </div>
+              <div className="input-group">
+                <label className="input-label">Conteúdo</label>
+                <textarea className="input" placeholder="Escreva o conteúdo..." rows={4} required
+                  value={postGrupo.conteudo}
+                  onChange={e => setPostGrupo(prev => ({ ...prev, conteudo: e.target.value }))} />
+              </div>
+              <div className="grid-2">
+                <div className="input-group">
+                  <label className="input-label">Tipo</label>
+                  <select className="input" value={postGrupo.tipo}
+                    onChange={e => setPostGrupo(prev => ({ ...prev, tipo: e.target.value }))}>
+                    <option value="post">Post</option>
+                    <option value="artigo">Artigo</option>
+                    <option value="pergunta">Pergunta</option>
+                    <option value="dica">Dica</option>
+                  </select>
+                </div>
+                <div className="input-group">
+                  <label className="input-label">Tags (vírgula)</label>
+                  <input type="text" className="input" placeholder="Ex: milho, pragas"
+                    value={postGrupo.tags}
+                    onChange={e => setPostGrupo(prev => ({ ...prev, tags: e.target.value }))} />
+                </div>
+              </div>
+              <div style={{ display: 'flex', gap: '12px' }}>
+                <button type="submit" className="btn btn-primary" style={{ flex: 1 }} disabled={submittingPost}>
+                  {submittingPost ? <Loader size={16} className="spinner" /> : <FileText size={16} />}
+                  {submittingPost ? 'A publicar...' : 'Publicar no Feed'}
+                </button>
+                <button type="button" className="btn btn-ghost" onClick={() => setShowPublicarNoGrupo(false)}>
+                  Cancelar
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+    </>
     );
   };
 

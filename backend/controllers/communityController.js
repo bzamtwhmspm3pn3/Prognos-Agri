@@ -113,6 +113,8 @@ const listarGrupos = async (req, res, next) => {
   try {
     const grupos = await Group.find({ ativo: true })
       .populate('criadorId', 'username')
+      .populate('membros.usuarioId', 'username')
+      .populate('pedidosPendentes.usuarioId', 'username')
       .sort({ createdAt: -1 });
 
     const gruposComInfo = await Promise.all(
@@ -124,8 +126,18 @@ const listarGrupos = async (req, res, next) => {
           descricao: g.descricao,
           foto: g.foto,
           categoria: g.categoria,
+          tipo: g.tipo,
           criador: g.criadorId?.username || 'Desconhecido',
           totalMembros: g.membros.length,
+          membros: g.membros.map(m => ({
+            usuarioId: m.usuarioId,
+            cargo: m.cargo,
+            entrouEm: m.entrouEm
+          })),
+          pedidosPendentes: g.pedidosPendentes.map(p => ({
+            usuarioId: p.usuarioId,
+            createdAt: p.createdAt
+          })),
           totalPosts: count,
           criadoEm: g.createdAt
         };
