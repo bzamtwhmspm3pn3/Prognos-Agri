@@ -142,7 +142,7 @@ Pergunta: ${mensagem}`;
         };
       }
     } catch (err) {
-      console.error('Erro Gemini API:', err.message);
+      console.error('Erro Gemini API:', err.message, err.response?.status, err.response?.data?.error?.message || '');
     }
   }
   return gerarRespostaLocal(mensagem);
