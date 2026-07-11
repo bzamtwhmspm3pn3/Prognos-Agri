@@ -37,7 +37,7 @@ export default function PrognosHeader() {
         </div>
       </div>
 
-      <div style={{ flex: 1, maxWidth: '400px', margin: '0 20px' }}>
+      <div className="header-search" style={{ flex: 1, maxWidth: '400px', margin: '0 20px' }}>
         <div style={{ position: 'relative' }}>
           <Search size={16} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
           <input
@@ -86,6 +86,7 @@ export default function PrognosHeader() {
         </button>
 
         <div
+          className="header-user-info"
           style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '4px 8px', borderRadius: 'var(--radius)', cursor: 'pointer' }}
           onClick={() => navigate('/app/perfil')}
         >

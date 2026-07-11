@@ -7,7 +7,7 @@ import PrognosCard from '../components/PrognosCard';
 import { detectPestFromImage, checkPythonHealth, mockDetectPestFromImage } from '../../services/pythonService';
 import { deteccaoApi } from '../../services/deteccaoApi';
 import vozService from '../../services/vozService';
-import { getActiveCameras } from '../../services/cameraService';
+import { useIntegracao } from '../contexts/IntegracaoContext';
 
 const nomesPortugues = {
   'bird': 'Pássaro', 'pigeon': 'Pombo', 'sparrow': 'Pardal',
@@ -141,6 +141,7 @@ export default function DeteccaoPragas() {
   const videoRef = useRef(null);
   const streamRef = useRef(null);
   const ipCameraImgRef = useRef(null);
+  const { getActiveCameras, emitirDeteccao } = useIntegracao();
 
   useEffect(() => {
     checkPythonHealth().then(status => {
@@ -152,7 +153,7 @@ export default function DeteccaoPragas() {
     } catch {}
     setCamerasIP(getActiveCameras());
     return () => pararCamera();
-  }, []);
+  }, [getActiveCameras]);
 
   const iniciarCamera = async () => {
     setErroCamera(null);
@@ -278,6 +279,8 @@ export default function DeteccaoPragas() {
       const novoHistorico = [novoResultado, ...historico].slice(0, 20);
       setHistorico(novoHistorico);
       localStorage.setItem('prognos_deteccoes', JSON.stringify(novoHistorico));
+
+      emitirDeteccao(novoResultado);
 
       try {
         setSaving(true);

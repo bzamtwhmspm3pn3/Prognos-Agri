@@ -1,16 +1,17 @@
 import React, { useState, useEffect } from 'react';
 import RelatoriosColheita from '../../components/AgroOkuvanja/RelatoriosColheita';
-import { deteccaoApi } from '../../services/deteccaoApi';
+import { useIntegracao } from '../contexts/IntegracaoContext';
 import { Loader, AlertCircle } from 'lucide-react';
 
 export default function RelatoriosColheitaPage() {
   const [deteccoes, setDeteccoes] = useState([]);
   const [loading, setLoading] = useState(true);
   const [erro, setErro] = useState(null);
+  const { refreshDashboard } = useIntegracao();
 
   useEffect(() => {
     carregarDeteccoes();
-  }, []);
+  }, [refreshDashboard]);
 
   const carregarDeteccoes = async () => {
     try {

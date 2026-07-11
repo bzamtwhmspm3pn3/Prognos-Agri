@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { History, Search, Filter, Loader, AlertCircle, CheckCircle, X, Bug, Bird, Rat, Download, Trash2 } from 'lucide-react';
 import { deteccaoApi } from '../../services/deteccaoApi';
+import { useIntegracao } from '../contexts/IntegracaoContext';
 
 const nomesPortugues = {
   'bird': 'Pássaro', 'rat': 'Ratazana', 'mouse': 'Camundongo', 'rodent': 'Roedor',
@@ -38,10 +39,11 @@ export default function HistoricoOcorrenciasPage() {
   const [erro, setErro] = useState(null);
   const [filtro, setFiltro] = useState('');
   const [filtroRisco, setFiltroRisco] = useState('');
+  const { refreshDashboard } = useIntegracao();
 
   useEffect(() => {
     carregarOcorrencias();
-  }, []);
+  }, [refreshDashboard]);
 
   const carregarOcorrencias = async () => {
     try {

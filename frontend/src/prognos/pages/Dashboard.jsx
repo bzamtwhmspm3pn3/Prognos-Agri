@@ -1,9 +1,10 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Camera, Bug, DollarSign, Ruler, AlertTriangle, TrendingUp, Cloud, ShoppingBag } from 'lucide-react';
 import Stats from '../components/Stats';
 import PrognosCard from '../components/PrognosCard';
 import { usePrognos } from '../contexts/PrognosContext';
+import { useIntegracao } from '../contexts/IntegracaoContext';
 import { getDashboard } from '../../services/dashboardService';
 
 export default function Dashboard() {
@@ -11,13 +12,11 @@ export default function Dashboard() {
   const { user } = usePrognos();
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
+  const { refreshDashboard, deteccoesRecentes } = useIntegracao();
 
-  useEffect(() => {
-    loadDashboard();
-  }, []);
-
-  const loadDashboard = async () => {
+  const loadDashboard = useCallback(async () => {
     try {
+      setLoading(true);
       const result = await getDashboard();
       if (result.success) setData(result.data);
     } catch (err) {
@@ -25,9 +24,15 @@ export default function Dashboard() {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
-  if (loading) return <div className="spinner" />;
+  useEffect(() => {
+    loadDashboard();
+  }, [loadDashboard, refreshDashboard]);
+
+  const recentCount = deteccoesRecentes.length;
+
+  if (loading && !data) return <div className="spinner" />;
 
   const stats = data && data.resumo ? [
     { icon: <Camera size={22} />, color: '#3b82f6', value: data.resumo.totalScans, label: 'Total de Scans', change: 12 },
@@ -42,8 +47,18 @@ export default function Dashboard() {
         <h1 style={{ fontFamily: 'var(--font-heading)', fontWeight: 800, fontSize: '1.8rem', color: 'var(--primary)' }}>
           Bem-vindo, {user?.username || 'Agricultor'}! 👋
         </h1>
-        <p style={{ color: 'var(--text-secondary)', marginTop: '4px' }}>
+        <p style={{ color: 'var(--text-secondary)', marginTop: '4px', display: 'flex', alignItems: 'center', gap: '12px' }}>
           Aqui está o resumo da sua actividade no Prognos Agri.
+          {recentCount > 0 && (
+            <span style={{
+              fontSize: '0.75rem', fontWeight: 600, padding: '3px 10px',
+              borderRadius: '50px', background: 'rgba(239,68,68,0.1)',
+              color: '#ef4444', display: 'inline-flex', alignItems: 'center', gap: '4px'
+            }}>
+              <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#ef4444' }} />
+              {recentCount} deteção(ões) recente(s)
+            </span>
+          )}
         </p>
       </div>
 

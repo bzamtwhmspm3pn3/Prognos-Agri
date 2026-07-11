@@ -1,8 +1,11 @@
 import React from 'react';
 import ConfiguracaoCameras from '../../components/AgroOkuvanja/ConfiguracaoCameras';
+import { useIntegracao } from '../contexts/IntegracaoContext';
 import { Camera, Info } from 'lucide-react';
 
 export default function ConfiguracaoCamerasPage() {
+  const { emitirDeteccao, atualizarMapaRisco, recarregarCameras } = useIntegracao();
+
   return (
     <div>
       <div style={{ marginBottom: '24px' }}>
@@ -24,16 +27,31 @@ export default function ConfiguracaoCamerasPage() {
         <Info size={18} color="#3b82f6" style={{ flexShrink: 0 }} />
         <span>
           As câmaras capturam frames periodicamente e enviam para deteção automática de pragas via IA.
-          As configurações são guardadas localmente no navegador.
+          As deteções são partilhadas automaticamente com o Dashboard, Monitoramento e Histórico.
         </span>
       </div>
 
       <ConfiguracaoCameras
-        onAtualizarDashboard={() => console.log('Dashboard atualizado')}
-        onDeteccaoRoedor={(d) => console.log('Roedor detetado:', d)}
-        onDeteccaoAve={(d) => console.log('Ave detetada:', d)}
-        onDeteccaoGeral={(d) => console.log('Deteção geral:', d)}
-        onAtualizarMapaRisco={(d) => console.log('Mapa de risco atualizado:', d)}
+        onAtualizarDashboard={() => recarregarCameras()}
+        onDeteccaoRoedor={(d) => emitirDeteccao({
+          ...d,
+          tipo: 'roedor',
+          timestamp: new Date().toISOString(),
+          localizacao: d.localizacao || 'Área da câmara'
+        })}
+        onDeteccaoAve={(d) => emitirDeteccao({
+          ...d,
+          tipo: 'ave',
+          timestamp: new Date().toISOString(),
+          localizacao: d.localizacao || 'Área da câmara'
+        })}
+        onDeteccaoGeral={(d) => emitirDeteccao({
+          ...d,
+          timestamp: d.timestamp || new Date().toISOString(),
+          localizacao: d.localizacao || 'Área da câmara'
+        })}
+        onAtualizarMapaRisco={(d) => atualizarMapaRisco(d)}
+        onCamerasChange={() => recarregarCameras()}
       />
     </div>
   );

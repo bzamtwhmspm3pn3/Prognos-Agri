@@ -1,6 +1,7 @@
 ﻿import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { PrognosProvider, usePrognos } from './prognos/contexts/PrognosContext';
+import { IntegracaoProvider } from './prognos/contexts/IntegracaoContext';
 import PrognosHeader from './prognos/components/PrognosHeader';
 import PrognosSidebar from './prognos/components/PrognosSidebar';
 import PrognosFooter from './prognos/components/PrognosFooter';
@@ -70,7 +71,8 @@ function AppLayout() {
 export default function App() {
   return (
     <BrowserRouter>
-      <PrognosProvider>
+      <IntegracaoProvider>
+        <PrognosProvider>
         <Routes>
           <Route path="/" element={<FreeLanding />} />
           <Route path="/login" element={<PublicRoute><Login /></PublicRoute>} />
@@ -81,7 +83,8 @@ export default function App() {
             </PrivateRoute>
           } />
         </Routes>
-      </PrognosProvider>
+        </PrognosProvider>
+      </IntegracaoProvider>
     </BrowserRouter>
   );
 }

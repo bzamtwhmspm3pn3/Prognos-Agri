@@ -802,10 +802,11 @@ const StreamViewer = ({
 // Componente principal (MODIFICADO - recebe novas props)
 export default function ConfiguracaoCameras({ 
   onAtualizarDashboard,
-  onDeteccaoRoedor,     // Nova prop
-  onDeteccaoAve,        // Nova prop
-  onDeteccaoGeral,      // Nova prop
-  onAtualizarMapaRisco  // Nova prop
+  onDeteccaoRoedor,
+  onDeteccaoAve,
+  onDeteccaoGeral,
+  onAtualizarMapaRisco,
+  onCamerasChange
 }) {
   const [cameras, setCameras] = useState([]);
   const [modalAberto, setModalAberto] = useState(false);
@@ -829,6 +830,7 @@ export default function ConfiguracaoCameras({
   const salvarCameras = (novasCameras) => {
     setCameras(novasCameras);
     localStorage.setItem('agrookuvanja_cameras', JSON.stringify(novasCameras));
+    if (onCamerasChange) onCamerasChange(novasCameras);
   };
 
   const handleAdicionar = (novaCamera) => {
