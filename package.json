@@ -1,0 +1,8 @@
+{
+  "name": "prognos-agri",
+  "private": true,
+  "scripts": {
+    "build": "cd frontend && npm install && CI=false npm run build",
+    "start": "cd frontend && npx serve -s build"
+  }
+}
