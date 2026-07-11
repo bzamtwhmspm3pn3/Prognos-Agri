@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { Users, MessageCircle, Heart, Eye, Plus, Search, Tag, Send, Loader, AlertCircle, ArrowLeft, LogIn, UserCheck, UserX, Shield, Image, Paperclip } from 'lucide-react';
+import { Users, MessageCircle, Heart, Eye, Plus, Search, Tag, Send, Loader, AlertCircle, ArrowLeft, LogIn, UserCheck, UserX, Shield, Image, Paperclip, Settings, Trash2, Edit3, Crown, Camera } from 'lucide-react';
 import PrognosCard from '../components/PrognosCard';
 import { usePrognos } from '../contexts/PrognosContext';
-import { listarPosts, criarPost, likePost, comentar, listarGrupos, criarGrupo, getTagsPopulares, listarMensagens, enviarMensagem, solicitarEntrada, aprovarMembro, removerMembro, uploadFile } from '../../services/communityService';
+import { listarPosts, criarPost, likePost, comentar, listarGrupos, criarGrupo, getTagsPopulares, listarMensagens, enviarMensagem, solicitarEntrada, aprovarMembro, removerMembro, alterarCargo, atualizarGrupo, eliminarGrupo, uploadFile } from '../../services/communityService';
 import { connectSocket, joinGrupo, leaveGrupo, onNewMessage, offNewMessage, sendMessage as sendSocketMessage, disconnectSocket } from '../../services/socketService';
 
 export default function Community() {
@@ -34,6 +34,8 @@ export default function Community() {
   const [loadingMsgs, setLoadingMsgs] = useState(false);
   const [gruposDetalhe, setGruposDetalhe] = useState({});
   const [uploading, setUploading] = useState(false);
+  const [showGroupSettings, setShowGroupSettings] = useState(false);
+  const [editGroupData, setEditGroupData] = useState({ nome: '', descricao: '', foto: '' });
   const fileInputRef = useRef(null);
   const chatEndRef = useRef(null);
 
@@ -179,6 +181,49 @@ export default function Community() {
       carregarDados();
     } catch (err) {
       console.error('Erro ao remover membro:', err);
+    }
+  };
+
+  const handleAlterarCargo = async (grupoId, usuarioId, cargo) => {
+    try {
+      await alterarCargo(grupoId, usuarioId, cargo);
+      carregarDados();
+      if (chatGroup?._id === grupoId) {
+        const g = gruposDetalhe[grupoId];
+        setGruposDetalhe(prev => ({ ...prev, [grupoId]: { ...prev[grupoId] } }));
+      }
+    } catch (err) {
+      console.error('Erro ao alterar cargo:', err);
+    }
+  };
+
+  const openGroupSettings = () => {
+    const g = gruposDetalhe[chatGroup._id] || chatGroup;
+    setEditGroupData({ nome: g.nome || '', descricao: g.descricao || '', foto: g.foto || '' });
+    setShowGroupSettings(true);
+  };
+
+  const handleSaveGroup = async (e) => {
+    e.preventDefault();
+    try {
+      await atualizarGrupo(chatGroup._id, editGroupData);
+      setShowGroupSettings(false);
+      carregarDados();
+    } catch (err) {
+      console.error('Erro ao actualizar grupo:', err);
+    }
+  };
+
+  const handleDeleteGroup = async () => {
+    if (!window.confirm('Tens a certeza? Esta acção não pode ser desfeita.')) return;
+    if (!window.confirm('Todos os membros serão removidos. Confirmas?')) return;
+    try {
+      await eliminarGrupo(chatGroup._id);
+      setShowGroupSettings(false);
+      voltarGrupos();
+      carregarDados();
+    } catch (err) {
+      console.error('Erro ao eliminar grupo:', err);
     }
   };
 
@@ -387,11 +432,18 @@ export default function Community() {
                 {membros.length} membro{membros.length !== 1 ? 's' : ''}
               </div>
             </div>
-            {!isMember && (
-              <button className="btn btn-primary btn-sm" onClick={() => handleEntrarGrupo(chatGroup)}>
-                <LogIn size={14} /> Solicitar Entrada
-              </button>
-            )}
+            <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+              {isAdmin && (
+                <button className="btn btn-ghost btn-sm" onClick={openGroupSettings} title="Configurações do grupo">
+                  <Settings size={16} />
+                </button>
+              )}
+              {!isMember && (
+                <button className="btn btn-primary btn-sm" onClick={() => handleEntrarGrupo(chatGroup)}>
+                  <LogIn size={14} /> Solicitar Entrada
+                </button>
+              )}
+            </div>
           </div>
 
           <div style={{
@@ -460,13 +512,32 @@ export default function Community() {
                     </div>
                     <span>{getUserName(m)}</span>
                   </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                    {m.cargo === 'admin' && <Shield size={12} style={{ color: 'var(--accent)' }} />}
-                    {isAdmin && m.cargo !== 'admin' && getUserId(m) !== userId && (
-                      <button onClick={() => handleRemover(chatGroup._id, getUserId(m))}
-                        style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#ef4444', padding: '2px' }}>
-                        <UserX size={12} />
-                      </button>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '2px' }}>
+                    {m.cargo === 'admin' && <Crown size={12} style={{ color: 'var(--accent)' }} />}
+                    {m.cargo === 'moderador' && <Shield size={12} style={{ color: '#06b6d4' }} />}
+                    {isAdmin && getUserId(m) !== userId && (
+                      <>
+                        {m.cargo === 'admin' ? (
+                          <button onClick={() => handleAlterarCargo(chatGroup._id, getUserId(m), 'membro')}
+                            style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', padding: '2px', fontSize: '0.6rem' }}
+                            title="Remover admin">
+                            <UserX size={12} />
+                          </button>
+                        ) : (
+                          <>
+                            <button onClick={() => handleAlterarCargo(chatGroup._id, getUserId(m), 'admin')}
+                              style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--accent)', padding: '2px' }}
+                              title="Tornar admin">
+                              <Crown size={12} />
+                            </button>
+                            <button onClick={() => handleRemover(chatGroup._id, getUserId(m))}
+                              style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#ef4444', padding: '2px' }}
+                              title="Remover do grupo">
+                              <UserX size={12} />
+                            </button>
+                          </>
+                        )}
+                      </>
                     )}
                   </div>
                 </div>
@@ -614,7 +685,7 @@ export default function Community() {
   };
 
   if (chatGroup) {
-    return (
+    return (<>
       <div>
         <div style={{ marginBottom: '16px' }}>
           <h1 style={{ fontFamily: 'var(--font-heading)', fontWeight: 800, fontSize: '1.8rem', color: 'var(--primary)' }}>
@@ -623,6 +694,46 @@ export default function Community() {
         </div>
         {renderChat()}
       </div>
+
+      {showGroupSettings && (
+        <div className="modal-overlay" onClick={() => setShowGroupSettings(false)}>
+          <div className="modal-content" onClick={e => e.stopPropagation()}>
+            <div className="modal-header">
+              <h2 className="modal-title">⚙️ Configurações do Grupo</h2>
+              <button className="modal-close" onClick={() => setShowGroupSettings(false)}>✕</button>
+            </div>
+            <form onSubmit={handleSaveGroup} style={{ display: 'grid', gap: '16px' }}>
+              <div className="input-group">
+                <label className="input-label">Nome do Grupo</label>
+                <input type="text" className="input" required
+                  value={editGroupData.nome}
+                  onChange={e => setEditGroupData(prev => ({ ...prev, nome: e.target.value }))} />
+              </div>
+              <div className="input-group">
+                <label className="input-label">Descrição</label>
+                <textarea className="input" rows={3}
+                  value={editGroupData.descricao}
+                  onChange={e => setEditGroupData(prev => ({ ...prev, descricao: e.target.value }))} />
+              </div>
+              {editGroupData.foto && (
+                <div style={{ textAlign: 'center' }}>
+                  <img src={editGroupData.foto} alt="Group" style={{ maxWidth: '120px', borderRadius: '12px' }} />
+                </div>
+              )}
+              <div style={{ display: 'flex', gap: '12px' }}>
+                <button type="submit" className="btn btn-primary" style={{ flex: 1 }}>
+                  <Edit3 size={14} /> Salvar
+                </button>
+                <button type="button" className="btn btn-danger" onClick={handleDeleteGroup}
+                  style={{ background: '#ef4444', color: 'white', border: 'none', padding: '8px 16px', borderRadius: 'var(--radius)', cursor: 'pointer', fontWeight: 600, fontSize: '0.85rem' }}>
+                  <Trash2 size={14} /> Eliminar Grupo
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+    </>
     );
   }
 

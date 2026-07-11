@@ -36,6 +36,9 @@ router.post('/grupos/:id/entrar', protect, communityController.solicitarEntrada)
 router.post('/grupos/:id/aprovar/:usuarioId', protect, communityController.aprovarMembro);
 router.post('/grupos/:id/convidar/:usuarioId', protect, communityController.convidarMembro);
 router.delete('/grupos/:id/membros/:usuarioId', protect, communityController.removerMembro);
+router.put('/grupos/:id/cargo/:usuarioId', protect, communityController.alterarCargo);
+router.put('/grupos/:id', protect, communityController.atualizarGrupo);
+router.delete('/grupos/:id', protect, communityController.eliminarGrupo);
 router.get('/grupos/:id/mensagens', protect, communityController.listarMensagens);
 router.post('/grupos/:id/mensagens', protect, communityController.enviarMensagem);
 router.get('/mensagens/nao-lidas', protect, communityController.getMensagensNaoLidas);

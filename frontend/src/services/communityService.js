@@ -60,6 +60,21 @@ export const removerMembro = async (id, usuarioId) => {
   return response.data;
 };
 
+export const alterarCargo = async (id, usuarioId, cargo) => {
+  const response = await api.put(`/community/grupos/${id}/cargo/${usuarioId}`, { cargo });
+  return response.data;
+};
+
+export const atualizarGrupo = async (id, data) => {
+  const response = await api.put(`/community/grupos/${id}`, data);
+  return response.data;
+};
+
+export const eliminarGrupo = async (id) => {
+  const response = await api.delete(`/community/grupos/${id}`);
+  return response.data;
+};
+
 export const listarMensagens = async (id, params = {}) => {
   const response = await api.get(`/community/grupos/${id}/mensagens`, { params });
   return response.data;

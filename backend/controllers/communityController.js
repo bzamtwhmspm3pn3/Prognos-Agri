@@ -273,6 +273,58 @@ const removerMembro = async (req, res, next) => {
   } catch (error) { next(error); }
 };
 
+const alterarCargo = async (req, res, next) => {
+  try {
+    const { id, usuarioId } = req.params;
+    const { cargo } = req.body;
+    if (!['admin', 'moderador', 'membro'].includes(cargo)) {
+      return res.status(400).json({ success: false, message: 'Cargo inválido' });
+    }
+    const grupo = await Group.findById(id);
+    if (!grupo) return res.status(404).json({ success: false, message: 'Grupo não encontrado' });
+    if (!grupo.membros.some(m => m.usuarioId.toString() === req.userId.toString() && m.cargo === 'admin')) {
+      return res.status(403).json({ success: false, message: 'Só administradores podem alterar cargos' });
+    }
+    const membro = grupo.membros.find(m => m.usuarioId.toString() === usuarioId.toString());
+    if (!membro) return res.status(404).json({ success: false, message: 'Membro não encontrado' });
+    membro.cargo = cargo;
+    await grupo.save();
+    await GroupMessage.create({ grupoId: id, usuarioId: req.userId, conteudo: `Membro promovido a ${cargo}`, tipo: 'sistema' });
+    res.json({ success: true, data: grupo });
+  } catch (error) { next(error); }
+};
+
+const atualizarGrupo = async (req, res, next) => {
+  try {
+    const grupo = await Group.findById(req.params.id);
+    if (!grupo) return res.status(404).json({ success: false, message: 'Grupo não encontrado' });
+    if (!grupo.membros.some(m => m.usuarioId.toString() === req.userId.toString() && m.cargo === 'admin')) {
+      return res.status(403).json({ success: false, message: 'Só administradores podem editar o grupo' });
+    }
+    const { nome, descricao, foto, categoria } = req.body;
+    if (nome) grupo.nome = nome.trim();
+    if (descricao !== undefined) grupo.descricao = descricao;
+    if (foto !== undefined) grupo.foto = foto;
+    if (categoria) grupo.categoria = categoria;
+    await grupo.save();
+    await GroupMessage.create({ grupoId: grupo._id, usuarioId: req.userId, conteudo: `Grupo actualizado`, tipo: 'sistema' });
+    res.json({ success: true, data: grupo });
+  } catch (error) { next(error); }
+};
+
+const eliminarGrupo = async (req, res, next) => {
+  try {
+    const grupo = await Group.findById(req.params.id);
+    if (!grupo) return res.status(404).json({ success: false, message: 'Grupo não encontrado' });
+    if (!grupo.membros.some(m => m.usuarioId.toString() === req.userId.toString() && m.cargo === 'admin')) {
+      return res.status(403).json({ success: false, message: 'Só administradores podem eliminar o grupo' });
+    }
+    grupo.ativo = false;
+    await grupo.save();
+    res.json({ success: true, message: 'Grupo eliminado' });
+  } catch (error) { next(error); }
+};
+
 const enviarMensagem = async (req, res, next) => {
   try {
     const grupo = await Group.findById(req.params.id);
@@ -363,6 +415,9 @@ module.exports = {
   aprovarMembro,
   convidarMembro,
   removerMembro,
+  alterarCargo,
+  atualizarGrupo,
+  eliminarGrupo,
   entrarGrupo,
   enviarMensagem,
   listarMensagens,
