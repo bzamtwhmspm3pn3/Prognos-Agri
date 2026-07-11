@@ -64,17 +64,18 @@ export default function MonitoramentoCampo({ onNovaDeteccao, onAtualizarDashboar
 
   const obterLocalizacaoIP = async () => {
     try {
-      const res = await fetch('https://ip-api.com/json/?fields=status,lat,lon,city,regionName,country,query');
+      const res = await fetch('https://ipapi.co/json/');
       const data = await res.json();
-      if (data.status === 'success' && data.country === 'Angola') {
+      const pais = (data.country || data.country_code || '').toLowerCase();
+      if (pais === 'angola' || pais === 'ao') {
         return {
-          latitude: data.lat,
-          longitude: data.lon,
+          latitude: data.latitude,
+          longitude: data.longitude,
           precisao: 50000,
           cidade: data.city || 'Desconhecido',
-          regiao: data.regionName || '',
+          regiao: data.region || '',
           pais: 'Angola',
-          endereco: `${data.city || ''}, ${data.regionName || ''}, Angola`,
+          endereco: `${data.city || ''}, ${data.region || ''}, Angola`,
           timestamp: new Date().toISOString()
         };
       }
