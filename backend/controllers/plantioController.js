@@ -17,10 +17,10 @@ const FASES_PADRAO = [
 
 exports.criarPlantio = async (req, res, next) => {
   try {
-    const { nome, cultura, provincia, municipio, area } = req.body;
+    const { nome, cultura, provincia, municipio, area, dataColheita, producaoEstimada, receitaEstimada } = req.body;
     const plantio = new Plantio({
       usuarioId: req.userId,
-      nome, cultura, provincia, municipio, area,
+      nome, cultura, provincia, municipio, area, dataColheita, producaoEstimada, receitaEstimada,
       fases: FASES_PADRAO.map(f => ({ ...f, status: 'pendente' }))
     });
     await plantio.save();
@@ -32,7 +32,10 @@ exports.criarPlantio = async (req, res, next) => {
 
 exports.listarPlantios = async (req, res, next) => {
   try {
-    const plantios = await Plantio.find({ usuarioId: req.userId }).sort('-createdAt');
+    const { arquivados } = req.query;
+    const filter = { usuarioId: req.userId };
+    if (arquivados !== 'sim') filter.status = { $ne: 'arquivado' };
+    const plantios = await Plantio.find(filter).sort('-createdAt');
     res.json({ success: true, plantios });
   } catch (error) {
     next(error);
@@ -43,6 +46,21 @@ exports.getPlantio = async (req, res, next) => {
   try {
     const plantio = await Plantio.findOne({ _id: req.params.id, usuarioId: req.userId });
     if (!plantio) return res.status(404).json({ success: false, message: 'Plantio não encontrado' });
+    res.json({ success: true, plantio });
+  } catch (error) {
+    next(error);
+  }
+};
+
+exports.atualizarPlantio = async (req, res, next) => {
+  try {
+    const plantio = await Plantio.findOne({ _id: req.params.id, usuarioId: req.userId });
+    if (!plantio) return res.status(404).json({ success: false, message: 'Plantio não encontrado' });
+
+    const campos = ['nome', 'cultura', 'provincia', 'municipio', 'area', 'dataColheita', 'producaoEstimada', 'producaoReal', 'receitaEstimada', 'receitaReal'];
+    campos.forEach(c => { if (req.body[c] !== undefined) plantio[c] = req.body[c]; });
+
+    await plantio.save();
     res.json({ success: true, plantio });
   } catch (error) {
     next(error);
@@ -74,9 +92,27 @@ exports.atualizarFase = async (req, res, next) => {
     }
 
     const todasConcluidas = plantio.fases.every(f => f.status === 'concluido' || f.status === 'pulado');
-    if (todasConcluidas) plantio.concluido = true;
+    if (todasConcluidas) { plantio.concluido = true; plantio.status = 'concluido'; }
 
     await plantio.save();
+    res.json({ success: true, plantio });
+  } catch (error) {
+    next(error);
+  }
+};
+
+exports.mudarStatus = async (req, res, next) => {
+  try {
+    const { status } = req.body;
+    if (!['ativo', 'concluido', 'arquivado', 'cancelado'].includes(status)) {
+      return res.status(400).json({ success: false, message: 'Status inválido' });
+    }
+    const plantio = await Plantio.findOneAndUpdate(
+      { _id: req.params.id, usuarioId: req.userId },
+      { status, concluido: status === 'concluido' },
+      { new: true }
+    );
+    if (!plantio) return res.status(404).json({ success: false, message: 'Plantio não encontrado' });
     res.json({ success: true, plantio });
   } catch (error) {
     next(error);
@@ -120,6 +156,30 @@ Responde com JSON:
     res.json({ success: true, ...JSON.parse(jsonMatch[0]) });
   } catch (error) {
     console.error('Erro IA Plantio:', error.message);
+    next(error);
+  }
+};
+
+exports.estatisticas = async (req, res, next) => {
+  try {
+    const plantios = await Plantio.find({ usuarioId: req.userId });
+    const total = plantios.length;
+    const ativos = plantios.filter(p => p.status === 'ativo').length;
+    const concluidos = plantios.filter(p => p.status === 'concluido').length;
+    const arquivados = plantios.filter(p => p.status === 'arquivado').length;
+    const cancelados = plantios.filter(p => p.status === 'cancelado').length;
+    const areaTotal = plantios.reduce((a, p) => a + (p.area || 0), 0);
+    const porCultura = {};
+    plantios.forEach(p => { porCultura[p.cultura] = (porCultura[p.cultura] || 0) + 1; });
+    const fasesConcluidas = plantios.reduce((a, p) => a + p.fases.filter(f => f.status === 'concluido').length, 0);
+    const fasesTotal = plantios.reduce((a, p) => a + p.fases.length, 0);
+
+    res.json({ success: true, data: {
+      total, ativos, concluidos, arquivados, cancelados, areaTotal,
+      culturas: Object.entries(porCultura).map(([nome, quantidade]) => ({ nome, quantidade })),
+      progressoGeral: fasesTotal > 0 ? Math.round((fasesConcluidas / fasesTotal) * 100) : 0
+    }});
+  } catch (error) {
     next(error);
   }
 };

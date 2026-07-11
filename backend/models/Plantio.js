@@ -20,7 +20,13 @@ const plantioSchema = new mongoose.Schema({
   municipio: String,
   area: Number,
   faseAtual: { type: Number, default: 0 },
+  status: { type: String, enum: ['ativo', 'concluido', 'arquivado', 'cancelado'], default: 'ativo' },
   concluido: { type: Boolean, default: false },
+  dataColheita: Date,
+  producaoEstimada: Number,
+  producaoReal: Number,
+  receitaEstimada: Number,
+  receitaReal: Number,
   fases: [faseSchema]
 }, { timestamps: true });
 

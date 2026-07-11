@@ -1,5 +1,7 @@
 const CommunityPost = require('../models/CommunityPost');
 const Group = require('../models/Group');
+const GroupMessage = require('../models/GroupMessage');
+const crypto = require('crypto');
 
 const listarPosts = async (req, res, next) => {
   try {
@@ -138,7 +140,7 @@ const listarGrupos = async (req, res, next) => {
 
 const criarGrupo = async (req, res, next) => {
   try {
-    const { nome, descricao, categoria } = req.body;
+    const { nome, descricao, categoria, tipo } = req.body;
     if (!nome) {
       return res.status(400).json({ success: false, message: 'Nome do grupo é obrigatório' });
     }
@@ -152,8 +154,17 @@ const criarGrupo = async (req, res, next) => {
       nome: nome.trim(),
       descricao: descricao || '',
       categoria: categoria || 'geral',
+      tipo: tipo || 'publico',
+      conviteCodigo: crypto.randomBytes(4).toString('hex'),
       criadorId: req.userId,
       membros: [{ usuarioId: req.userId, cargo: 'admin' }]
+    });
+
+    await GroupMessage.create({
+      grupoId: grupo._id,
+      usuarioId: req.userId,
+      conteudo: `${req.user?.username || 'Alguém'} criou o grupo "${grupo.nome}"`,
+      tipo: 'sistema'
     });
 
     res.status(201).json({ success: true, data: grupo });
@@ -182,6 +193,133 @@ const entrarGrupo = async (req, res, next) => {
   }
 };
 
+const solicitarEntrada = async (req, res, next) => {
+  try {
+    const grupo = await Group.findById(req.params.id);
+    if (!grupo) return res.status(404).json({ success: false, message: 'Grupo não encontrado' });
+
+    if (grupo.membros.some(m => m.usuarioId.toString() === req.userId)) {
+      return res.json({ success: true, message: 'Já és membro' });
+    }
+    if (grupo.pedidosPendentes?.some(p => p.usuarioId.toString() === req.userId)) {
+      return res.json({ success: true, message: 'Pedido já enviado' });
+    }
+
+    if (grupo.tipo === 'publico') {
+      grupo.membros.push({ usuarioId: req.userId, cargo: 'membro' });
+      await grupo.save();
+      await GroupMessage.create({ grupoId: grupo._id, usuarioId: req.userId, conteudo: `${req.user?.username || 'Alguém'} entrou no grupo`, tipo: 'sistema' });
+      return res.json({ success: true, data: grupo });
+    }
+
+    grupo.pedidosPendentes.push({ usuarioId: req.userId });
+    await grupo.save();
+    res.json({ success: true, message: 'Pedido enviado. Aguarda aprovação de um admin.' });
+  } catch (error) { next(error); }
+};
+
+const aprovarMembro = async (req, res, next) => {
+  try {
+    const grupo = await Group.findById(req.params.id);
+    if (!grupo) return res.status(404).json({ success: false, message: 'Grupo não encontrado' });
+    if (!grupo.membros.some(m => m.usuarioId.toString() === req.userId && (m.cargo === 'admin' || m.cargo === 'moderador'))) {
+      return res.status(403).json({ success: false, message: 'Só administradores podem aprovar' });
+    }
+
+    const pedido = grupo.pedidosPendentes.find(p => p.usuarioId.toString() === req.params.usuarioId);
+    if (!pedido) return res.status(404).json({ success: false, message: 'Pedido não encontrado' });
+
+    grupo.membros.push({ usuarioId: req.params.usuarioId, cargo: 'membro' });
+    grupo.pedidosPendentes = grupo.pedidosPendentes.filter(p => p.usuarioId.toString() !== req.params.usuarioId);
+    await grupo.save();
+    await GroupMessage.create({ grupoId: grupo._id, usuarioId: req.userId, conteudo: `Membro aprovado`, tipo: 'sistema' });
+    res.json({ success: true, data: grupo });
+  } catch (error) { next(error); }
+};
+
+const convidarMembro = async (req, res, next) => {
+  try {
+    const grupo = await Group.findById(req.params.id);
+    if (!grupo) return res.status(404).json({ success: false, message: 'Grupo não encontrado' });
+    if (!grupo.membros.some(m => m.usuarioId.toString() === req.userId && (m.cargo === 'admin' || m.cargo === 'moderador'))) {
+      return res.status(403).json({ success: false, message: 'Só administradores podem convidar' });
+    }
+    if (grupo.membros.some(m => m.usuarioId.toString() === req.params.usuarioId)) {
+      return res.json({ success: true, message: 'Já é membro' });
+    }
+    grupo.membros.push({ usuarioId: req.params.usuarioId, cargo: 'membro' });
+    await grupo.save();
+    await GroupMessage.create({ grupoId: grupo._id, usuarioId: req.userId, conteudo: `Novo membro adicionado`, tipo: 'sistema' });
+    res.json({ success: true, data: grupo });
+  } catch (error) { next(error); }
+};
+
+const removerMembro = async (req, res, next) => {
+  try {
+    const grupo = await Group.findById(req.params.id);
+    if (!grupo) return res.status(404).json({ success: false, message: 'Grupo não encontrado' });
+    if (!grupo.membros.some(m => m.usuarioId.toString() === req.userId && (m.cargo === 'admin' || m.cargo === 'moderador'))) {
+      return res.status(403).json({ success: false, message: 'Só administradores podem remover' });
+    }
+    grupo.membros = grupo.membros.filter(m => m.usuarioId.toString() !== req.params.usuarioId);
+    await grupo.save();
+    res.json({ success: true, data: grupo });
+  } catch (error) { next(error); }
+};
+
+const enviarMensagem = async (req, res, next) => {
+  try {
+    const grupo = await Group.findById(req.params.id);
+    if (!grupo) return res.status(404).json({ success: false, message: 'Grupo não encontrado' });
+    if (!grupo.membros.some(m => m.usuarioId.toString() === req.userId)) {
+      return res.status(403).json({ success: false, message: 'Não és membro deste grupo' });
+    }
+
+    const mensagem = await GroupMessage.create({
+      grupoId: req.params.id,
+      usuarioId: req.userId,
+      conteudo: req.body.conteudo,
+      respondendoA: req.body.respondendoA || null
+    });
+
+    const msg = await GroupMessage.findById(mensagem._id)
+      .populate('usuarioId', 'username profile.nome profile.imagemPerfil.url');
+
+    res.status(201).json({ success: true, data: msg });
+  } catch (error) { next(error); }
+};
+
+const listarMensagens = async (req, res, next) => {
+  try {
+    const { limite = 50, antes } = req.query;
+    const filter = { grupoId: req.params.id };
+    if (antes) filter._id = { $lt: antes };
+
+    const mensagens = await GroupMessage.find(filter)
+      .populate('usuarioId', 'username profile.nome profile.imagemPerfil.url')
+      .sort({ createdAt: -1 })
+      .limit(parseInt(limite));
+
+    await GroupMessage.updateMany(
+      { grupoId: req.params.id, lidoPor: { $ne: req.userId } },
+      { $addToSet: { lidoPor: req.userId } }
+    );
+
+    res.json({ success: true, data: mensagens.reverse() });
+  } catch (error) { next(error); }
+};
+
+const getMensagensNaoLidas = async (req, res, next) => {
+  try {
+    const grupos = await Group.find({ 'membros.usuarioId': req.userId });
+    const naoLidas = await Promise.all(grupos.map(async g => {
+      const count = await GroupMessage.countDocuments({ grupoId: g._id, lidoPor: { $ne: req.userId }, tipo: 'texto' });
+      return { grupoId: g._id, count };
+    }));
+    res.json({ success: true, data: naoLidas.filter(n => n.count > 0) });
+  } catch (error) { next(error); }
+};
+
 const getTagsPopulares = async (req, res, next) => {
   try {
     const tags = await CommunityPost.aggregate([
@@ -206,6 +344,13 @@ module.exports = {
   likePost,
   listarGrupos,
   criarGrupo,
+  solicitarEntrada,
+  aprovarMembro,
+  convidarMembro,
+  removerMembro,
   entrarGrupo,
+  enviarMensagem,
+  listarMensagens,
+  getMensagensNaoLidas,
   getTagsPopulares
 };
