@@ -2,7 +2,7 @@ import React from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import {
   LayoutDashboard, Cloud, ShoppingBag, MessageCircle, Users, QrCode,
-  Camera, User, ChevronLeft, ChevronRight, LogOut, MapPin, FileText, History, Monitor
+  Camera, User, ChevronLeft, ChevronRight, LogOut, MapPin, FileText, History, Monitor, Droplets
 } from 'lucide-react';
 import { usePrognos } from '../contexts/PrognosContext';
 
@@ -15,6 +15,7 @@ const menuItems = [
   { path: '/app/deteccao', icon: Camera, label: 'Detecção de Pragas', color: '#ef4444' },
   { path: '/app/chatbot', icon: MessageCircle, label: 'Assistente IA', color: '#8b5cf6' },
   { path: '/app/comunidade', icon: Users, label: 'Comunidade', color: '#06b6d4' },
+  { path: '/app/irrigacao', icon: Droplets, label: 'Irrigação', color: '#3b82f6' },
   { path: '/app/rastreabilidade', icon: QrCode, label: 'Rastreabilidade', color: '#10b981' },
   { path: '/app/cameras', icon: Monitor, label: 'Config. Câmaras', color: '#4A7C59' },
   { path: '/app/monitoramento', icon: MapPin, label: 'Monitoramento Campo', color: '#F97316' },

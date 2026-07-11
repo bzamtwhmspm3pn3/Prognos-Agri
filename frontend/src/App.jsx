@@ -20,6 +20,7 @@ import ConfiguracaoCamerasPage from './prognos/pages/ConfiguracaoCamerasPage';
 import MonitoramentoCampoPage from './prognos/pages/MonitoramentoCampoPage';
 import RelatoriosColheitaPage from './prognos/pages/RelatoriosColheitaPage';
 import HistoricoOcorrenciasPage from './prognos/pages/HistoricoOcorrenciasPage';
+import IrrigacaoPage from './prognos/pages/IrrigacaoPage';
 import './theme.css';
 
 function PrivateRoute({ children }) {
@@ -60,6 +61,7 @@ function AppLayout() {
             <Route path="/monitoramento" element={<MonitoramentoCampoPage />} />
             <Route path="/relatorios" element={<RelatoriosColheitaPage />} />
             <Route path="/historico" element={<HistoricoOcorrenciasPage />} />
+            <Route path="/irrigacao" element={<IrrigacaoPage />} />
           </Routes>
         </main>
       </div>
