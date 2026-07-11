@@ -192,7 +192,7 @@ const entrarGrupo = async (req, res, next) => {
       return res.status(404).json({ success: false, message: 'Grupo não encontrado' });
     }
 
-    if (grupo.membros.some(m => m.usuarioId.toString() === req.userId)) {
+    if (grupo.membros.some(m => m.usuarioId.toString() === req.userId.toString())) {
       return res.json({ success: true, message: 'Já és membro deste grupo' });
     }
 
@@ -210,10 +210,10 @@ const solicitarEntrada = async (req, res, next) => {
     const grupo = await Group.findById(req.params.id);
     if (!grupo) return res.status(404).json({ success: false, message: 'Grupo não encontrado' });
 
-    if (grupo.membros.some(m => m.usuarioId.toString() === req.userId)) {
+    if (grupo.membros.some(m => m.usuarioId.toString() === req.userId.toString())) {
       return res.json({ success: true, message: 'Já és membro' });
     }
-    if (grupo.pedidosPendentes?.some(p => p.usuarioId.toString() === req.userId)) {
+    if (grupo.pedidosPendentes?.some(p => p.usuarioId.toString() === req.userId.toString())) {
       return res.json({ success: true, message: 'Pedido já enviado' });
     }
 
@@ -234,7 +234,7 @@ const aprovarMembro = async (req, res, next) => {
   try {
     const grupo = await Group.findById(req.params.id);
     if (!grupo) return res.status(404).json({ success: false, message: 'Grupo não encontrado' });
-    if (!grupo.membros.some(m => m.usuarioId.toString() === req.userId && (m.cargo === 'admin' || m.cargo === 'moderador'))) {
+    if (!grupo.membros.some(m => m.usuarioId.toString() === req.userId.toString() && (m.cargo === 'admin' || m.cargo === 'moderador'))) {
       return res.status(403).json({ success: false, message: 'Só administradores podem aprovar' });
     }
 
@@ -242,7 +242,7 @@ const aprovarMembro = async (req, res, next) => {
     if (!pedido) return res.status(404).json({ success: false, message: 'Pedido não encontrado' });
 
     grupo.membros.push({ usuarioId: req.params.usuarioId, cargo: 'membro' });
-    grupo.pedidosPendentes = grupo.pedidosPendentes.filter(p => p.usuarioId.toString() !== req.params.usuarioId);
+    grupo.pedidosPendentes = grupo.pedidosPendentes.filter(p => p.usuarioId.toString() !== req.params.usuarioId.toString());
     await grupo.save();
     await GroupMessage.create({ grupoId: grupo._id, usuarioId: req.userId, conteudo: `Membro aprovado`, tipo: 'sistema' });
     res.json({ success: true, data: grupo });
@@ -253,7 +253,7 @@ const convidarMembro = async (req, res, next) => {
   try {
     const grupo = await Group.findById(req.params.id);
     if (!grupo) return res.status(404).json({ success: false, message: 'Grupo não encontrado' });
-    if (!grupo.membros.some(m => m.usuarioId.toString() === req.userId && (m.cargo === 'admin' || m.cargo === 'moderador'))) {
+    if (!grupo.membros.some(m => m.usuarioId.toString() === req.userId.toString() && (m.cargo === 'admin' || m.cargo === 'moderador'))) {
       return res.status(403).json({ success: false, message: 'Só administradores podem convidar' });
     }
     if (grupo.membros.some(m => m.usuarioId.toString() === req.params.usuarioId)) {
@@ -270,10 +270,10 @@ const removerMembro = async (req, res, next) => {
   try {
     const grupo = await Group.findById(req.params.id);
     if (!grupo) return res.status(404).json({ success: false, message: 'Grupo não encontrado' });
-    if (!grupo.membros.some(m => m.usuarioId.toString() === req.userId && (m.cargo === 'admin' || m.cargo === 'moderador'))) {
+    if (!grupo.membros.some(m => m.usuarioId.toString() === req.userId.toString() && (m.cargo === 'admin' || m.cargo === 'moderador'))) {
       return res.status(403).json({ success: false, message: 'Só administradores podem remover' });
     }
-    grupo.membros = grupo.membros.filter(m => m.usuarioId.toString() !== req.params.usuarioId);
+    grupo.membros = grupo.membros.filter(m => m.usuarioId.toString() !== req.params.usuarioId.toString());
     await grupo.save();
     res.json({ success: true, data: grupo });
   } catch (error) { next(error); }
@@ -283,7 +283,7 @@ const enviarMensagem = async (req, res, next) => {
   try {
     const grupo = await Group.findById(req.params.id);
     if (!grupo) return res.status(404).json({ success: false, message: 'Grupo não encontrado' });
-    if (!grupo.membros.some(m => m.usuarioId.toString() === req.userId)) {
+    if (!grupo.membros.some(m => m.usuarioId.toString() === req.userId.toString())) {
       return res.status(403).json({ success: false, message: 'Não és membro deste grupo' });
     }
 
