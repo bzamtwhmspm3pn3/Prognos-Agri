@@ -25,7 +25,7 @@ export default function Community() {
   const [submittingPost, setSubmittingPost] = useState(false);
 
   const [showCriarGrupo, setShowCriarGrupo] = useState(false);
-  const [newGroup, setNewGroup] = useState({ nome: '', descricao: '', categoria: 'geral', tipo: 'publico' });
+  const [newGroup, setNewGroup] = useState({ nome: '', descricao: '', categoria: 'geral' });
 
   const [chatGroup, setChatGroup] = useState(null);
   const [mensagens, setMensagens] = useState([]);
@@ -200,7 +200,7 @@ export default function Community() {
       if (res.success) {
         setGrupos(prev => [...prev, res.data]);
         setShowCriarGrupo(false);
-        setNewGroup({ nome: '', descricao: '', categoria: 'geral', tipo: 'publico' });
+        setNewGroup({ nome: '', descricao: '', categoria: 'geral' });
       }
     } catch (err) {
       console.error('Erro ao criar grupo:', err);
@@ -331,7 +331,7 @@ export default function Community() {
             </div>
             {!isMember && (
               <button className="btn btn-primary btn-sm" onClick={() => handleEntrarGrupo(chatGroup)}>
-                <LogIn size={14} /> {chatGroup.tipo === 'privado' ? 'Solicitar' : 'Entrar'}
+                <LogIn size={14} /> Solicitar Entrada
               </button>
             )}
           </div>
@@ -698,8 +698,8 @@ export default function Community() {
                   }} onClick={() => abrirChat(g)}>
                     <span style={{ fontSize: '0.9rem' }}>{g.nome}</span>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                      {g.tipo === 'privado' && <span className="badge badge-accent" style={{ fontSize: '0.65rem' }}>Privado</span>}
-                      <span className="badge badge-primary">{g.totalMembros || 0}</span>
+                      <span className="badge badge-accent" style={{ fontSize: '0.65rem' }}>Privado</span>
+                    <span className="badge badge-primary">{g.totalMembros || 0}</span>
                     </div>
                   </div>
                 ))
@@ -753,7 +753,7 @@ export default function Community() {
                   )}
                   <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '12px' }}>
                     {g.totalPosts || 0} publicações • {g.totalMembros || 0} membros
-                    {g.tipo === 'privado' && <span className="badge badge-accent" style={{ marginLeft: '8px' }}>Privado</span>}
+                    <span className="badge badge-accent" style={{ marginLeft: '8px' }}>Privado</span>
                   </p>
                   <div style={{ display: 'flex', gap: '8px', marginTop: 'auto' }}>
                     <button className="btn btn-sm btn-primary" onClick={() => abrirChat(g)}>
@@ -761,7 +761,7 @@ export default function Community() {
                     </button>
                     {!ehMembro(g) && (
                       <button className="btn btn-sm btn-outline" onClick={() => handleEntrarGrupo(g)}>
-                        <LogIn size={14} /> {g.tipo === 'privado' ? 'Solicitar' : 'Entrar'}
+                        <LogIn size={14} /> Solicitar
                       </button>
                     )}
                   </div>
@@ -790,28 +790,21 @@ export default function Community() {
                 <textarea className="input" placeholder="Descreva o propósito do grupo..." rows={3}
                   value={newGroup.descricao} onChange={e => setNewGroup(prev => ({ ...prev, descricao: e.target.value }))} />
               </div>
-              <div className="grid-2" style={{ gap: '12px' }}>
-                <div className="input-group">
-                  <label className="input-label">Categoria</label>
-                  <select className="input" value={newGroup.categoria}
-                    onChange={e => setNewGroup(prev => ({ ...prev, categoria: e.target.value }))}>
-                    <option value="geral">Geral</option>
-                    <option value="culturas">Culturas</option>
-                    <option value="pecuaria">Pecuária</option>
-                    <option value="pragas">Pragas e Doenças</option>
-                    <option value="mercado">Mercado</option>
-                    <option value="tecnologia">Tecnologia</option>
-                  </select>
-                </div>
-                <div className="input-group">
-                  <label className="input-label">Privacidade</label>
-                  <select className="input" value={newGroup.tipo}
-                    onChange={e => setNewGroup(prev => ({ ...prev, tipo: e.target.value }))}>
-                    <option value="publico">Público (entrada livre)</option>
-                    <option value="privado">Privado (aprovação necessária)</option>
-                  </select>
-                </div>
+              <div className="input-group">
+                <label className="input-label">Categoria</label>
+                <select className="input" value={newGroup.categoria}
+                  onChange={e => setNewGroup(prev => ({ ...prev, categoria: e.target.value }))}>
+                  <option value="geral">Geral</option>
+                  <option value="culturas">Culturas</option>
+                  <option value="pecuaria">Pecuária</option>
+                  <option value="pragas">Pragas e Doenças</option>
+                  <option value="mercado">Mercado</option>
+                  <option value="tecnologia">Tecnologia</option>
+                </select>
               </div>
+              <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: '-8px' }}>
+                🔒 Grupo privado — membros precisam de aprovação do administrador
+              </p>
               <div style={{ display: 'flex', gap: '12px' }}>
                 <button type="submit" className="btn btn-primary" style={{ flex: 1 }}>Criar Grupo</button>
                 <button type="button" className="btn btn-ghost" onClick={() => setShowCriarGrupo(false)}>Cancelar</button>

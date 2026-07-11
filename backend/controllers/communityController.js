@@ -166,7 +166,7 @@ const criarGrupo = async (req, res, next) => {
       nome: nome.trim(),
       descricao: descricao || '',
       categoria: categoria || 'geral',
-      tipo: tipo || 'publico',
+      tipo: 'privado',
       conviteCodigo: crypto.randomBytes(4).toString('hex'),
       criadorId: req.userId,
       membros: [{ usuarioId: req.userId, cargo: 'admin' }]
@@ -217,15 +217,9 @@ const solicitarEntrada = async (req, res, next) => {
       return res.json({ success: true, message: 'Pedido já enviado' });
     }
 
-    if (grupo.tipo === 'publico') {
-      grupo.membros.push({ usuarioId: req.userId, cargo: 'membro' });
-      await grupo.save();
-      await GroupMessage.create({ grupoId: grupo._id, usuarioId: req.userId, conteudo: `${req.user?.username || 'Alguém'} entrou no grupo`, tipo: 'sistema' });
-      return res.json({ success: true, data: grupo });
-    }
-
     grupo.pedidosPendentes.push({ usuarioId: req.userId });
     await grupo.save();
+    await GroupMessage.create({ grupoId: grupo._id, usuarioId: req.userId, conteudo: `${req.user?.username || 'Alguém'} pediu para entrar`, tipo: 'sistema' });
     res.json({ success: true, message: 'Pedido enviado. Aguarda aprovação de um admin.' });
   } catch (error) { next(error); }
 };
