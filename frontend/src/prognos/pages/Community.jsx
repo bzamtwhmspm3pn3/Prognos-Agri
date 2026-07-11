@@ -215,6 +215,8 @@ export default function Community() {
            (p.tags || []).some(t => t.toLowerCase().includes(q));
   });
 
+  const userId = user?.userId || user?._id || user?.id;
+
   const getUserId = (m) => {
     if (!m?.usuarioId) return null;
     return typeof m.usuarioId === 'object' ? (m.usuarioId._id || m.usuarioId.toString()) : m.usuarioId.toString();
@@ -227,23 +229,23 @@ export default function Community() {
   };
 
   const ehAdmin = (grupo) => {
-    if (!user?._id || !grupo?._id) return false;
+    if (!userId || !grupo?._id) return false;
     const g = gruposDetalhe[grupo._id] || grupo;
     return g.membros?.some(m => {
       const uid = getUserId(m);
-      return uid === user._id && (m.cargo === 'admin' || m.cargo === 'moderador');
-    }) || g.criador === user.username;
+      return uid === userId && (m.cargo === 'admin' || m.cargo === 'moderador');
+    }) || g.criador === user?.username;
   };
 
   const ehMembro = (grupo) => {
-    if (!user?._id) return false;
+    if (!userId) return false;
     const g = gruposDetalhe[grupo._id] || grupo;
-    return g.membros?.some(m => getUserId(m) === user._id);
+    return g.membros?.some(m => getUserId(m) === userId);
   };
 
   const renderMensagem = (msg, index) => {
     const isSistema = msg.tipo === 'sistema';
-    const isMine = msg.usuarioId?._id === user?._id || msg.usuarioId === user?._id;
+    const isMine = msg.usuarioId?._id === userId || msg.usuarioId === userId;
 
     if (isSistema) {
       return (
@@ -398,7 +400,7 @@ export default function Community() {
                   </div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
                     {m.cargo === 'admin' && <Shield size={12} style={{ color: 'var(--accent)' }} />}
-                    {isAdmin && m.cargo !== 'admin' && getUserId(m) !== user?._id && (
+                    {isAdmin && m.cargo !== 'admin' && getUserId(m) !== userId && (
                       <button onClick={() => handleRemover(chatGroup._id, getUserId(m))}
                         style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#ef4444', padding: '2px' }}>
                         <UserX size={12} />
