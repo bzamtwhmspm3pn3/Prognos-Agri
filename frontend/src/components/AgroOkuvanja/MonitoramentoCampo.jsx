@@ -62,34 +62,65 @@ export default function MonitoramentoCampo({ onNovaDeteccao, onAtualizarDashboar
     obterLocalizacao();
   }, []);
 
-  const obterLocalizacao = () => {
-    setDados(prev => ({ ...prev, carregandoGeo: true, erroGeo: null }));
+  const obterLocalizacaoIP = async () => {
+    try {
+      const res = await fetch('https://ip-api.com/json/?fields=status,lat,lon,city,regionName,country,query');
+      const data = await res.json();
+      if (data.status === 'success' && data.country === 'Angola') {
+        return {
+          latitude: data.lat,
+          longitude: data.lon,
+          precisao: 50000,
+          cidade: data.city || 'Desconhecido',
+          regiao: data.regionName || '',
+          pais: 'Angola',
+          endereco: `${data.city || ''}, ${data.regionName || ''}, Angola`,
+          timestamp: new Date().toISOString()
+        };
+      }
+    } catch (err) {
+      console.error('Erro IP geolocation:', err);
+    }
+    return null;
+  };
 
+  const definirLocalizacao = (localizacao) => {
+    setDados(prev => ({
+      ...prev,
+      localizacao,
+      carregandoGeo: false,
+      erroGeo: null
+    }));
+    obterClima(localizacao.latitude, localizacao.longitude);
+  };
+
+  const tentarLocalizacaoBrowser = () => {
     if (!navigator.geolocation) {
-      setDados(prev => ({
-        ...prev,
-        carregandoGeo: false,
-        erroGeo: 'Geolocalização não é suportada pelo seu navegador'
-      }));
+      obterLocalizacaoIP().then(ipLoc => {
+        if (ipLoc) definirLocalizacao(ipLoc);
+        else setDados(prev => ({ ...prev, carregandoGeo: false, erroGeo: 'Geolocalização não suportada' }));
+      });
       return;
     }
 
     navigator.geolocation.getCurrentPosition(
-      // Sucesso
       async (position) => {
         const { latitude, longitude } = position.coords;
-        
-        // Obter endereço a partir das coordenadas (geocodificação reversa)
+        const precisao = position.coords.accuracy;
+
+        if (precisao > 100000) {
+          const ipLoc = await obterLocalizacaoIP();
+          if (ipLoc) { definirLocalizacao(ipLoc); return; }
+        }
+
         try {
           const response = await fetch(
             `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}&zoom=18&addressdetails=1`
           );
           const data = await response.json();
-          
-          const localizacao = {
-            latitude,
-            longitude,
-            precisao: position.coords.accuracy,
+          definirLocalizacao({
+            latitude, longitude,
+            precisao,
             altitude: position.coords.altitude,
             endereco: data.display_name || '',
             cidade: data.address?.city || data.address?.town || data.address?.village || 'Desconhecido',
@@ -97,65 +128,27 @@ export default function MonitoramentoCampo({ onNovaDeteccao, onAtualizarDashboar
             pais: data.address?.country || '',
             bairro: data.address?.suburb || data.address?.neighbourhood || '',
             timestamp: new Date().toISOString()
-          };
-
-          setDados(prev => ({
-            ...prev,
-            localizacao,
-            carregandoGeo: false
-          }));
-
-          // Após obter localização, buscar clima
-          obterClima(latitude, longitude);
-
+          });
         } catch (error) {
-          console.error('Erro ao obter endereço:', error);
-          setDados(prev => ({
-            ...prev,
-            localizacao: {
-              latitude,
-              longitude,
-              precisao: position.coords.accuracy,
-              altitude: position.coords.altitude,
-              timestamp: new Date().toISOString()
-            },
-            carregandoGeo: false
-          }));
-          
-          // Mesmo sem endereço, buscar clima
-          obterClima(latitude, longitude);
+          definirLocalizacao({ latitude, longitude, precisao, altitude: position.coords.altitude, timestamp: new Date().toISOString() });
         }
       },
-      // Erro
-      (error) => {
-        let mensagemErro = '';
-        switch(error.code) {
-          case error.PERMISSION_DENIED:
-            mensagemErro = 'Permissão de localização negada';
-            break;
-          case error.POSITION_UNAVAILABLE:
-            mensagemErro = 'Informação de localização indisponível';
-            break;
-          case error.TIMEOUT:
-            mensagemErro = 'Tempo excedido ao obter localização';
-            break;
-          default:
-            mensagemErro = 'Erro desconhecido ao obter localização';
-        }
-        
-        setDados(prev => ({
-          ...prev,
-          carregandoGeo: false,
-          erroGeo: mensagemErro
-        }));
+      async (error) => {
+        const ipLoc = await obterLocalizacaoIP();
+        if (ipLoc) { definirLocalizacao(ipLoc); return; }
+        let msg = 'Erro ao obter localização';
+        if (error.code === error.PERMISSION_DENIED) msg = 'Permissão de localização negada';
+        else if (error.code === error.POSITION_UNAVAILABLE) msg = 'Localização indisponível';
+        else if (error.code === error.TIMEOUT) msg = 'Tempo excedido';
+        setDados(prev => ({ ...prev, carregandoGeo: false, erroGeo: msg }));
       },
-      // Opções
-      {
-        enableHighAccuracy: true,
-        timeout: 10000,
-        maximumAge: 0
-      }
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
     );
+  };
+
+  const obterLocalizacao = () => {
+    setDados(prev => ({ ...prev, carregandoGeo: true, erroGeo: null }));
+    tentarLocalizacaoBrowser();
   };
 
   // ===== OBTER CLIMA REAL =====
@@ -500,10 +493,12 @@ export default function MonitoramentoCampo({ onNovaDeteccao, onAtualizarDashboar
               </button>
               
               {!mostrarSelector ? (
-                <button onClick={() => setMostrarSelector(true)}
-                  style={{ ...compartilharButtonStyle, marginTop: '8px', background: 'transparent', border: '1px dashed #82B74D', color: cores.verdePimenta }}>
-                  <MapPin size={14} /> Localização incorreta? Definir manualmente
-                </button>
+                <div style={{ textAlign: 'right', marginTop: '8px' }}>
+                  <span onClick={() => setMostrarSelector(true)}
+                    style={{ fontSize: '0.7rem', color: 'var(--text-muted)', cursor: 'pointer', textDecoration: 'underline dotted', opacity: 0.5 }}>
+                    Corrigir localização
+                  </span>
+                </div>
               ) : (
                 <div style={{ marginTop: '12px' }}>
                   <select value={provinciaManual}

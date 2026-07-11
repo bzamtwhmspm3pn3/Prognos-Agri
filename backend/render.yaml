@@ -20,6 +20,8 @@ services:
         value: https://prognos-agri.onrender.com,https://prognosagri.vercel.app
       - key: PYTHON_API_URL
         value: https://prognos-agri-python.onrender.com
+      - key: GEMINI_API_KEY
+        sync: false
 
   - type: web
     name: prognos-agri-python
