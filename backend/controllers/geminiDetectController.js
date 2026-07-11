@@ -1,5 +1,6 @@
 const axios = require('axios');
 const Detection = require('../models/detection');
+const Deteccao = require('../models/deteccao');
 const User = require('../models/user');
 
 const NIVEL_MAP = { 'Baixo': 1, 'Médio': 2, 'Alto': 3, 'Crítico': 4 };
@@ -101,6 +102,19 @@ Responde APENAS com JSON válido neste formato exacto (sem markdown):
     });
 
     await detection.save();
+
+    await new Deteccao({
+      usuarioId: req.userId,
+      timestamp: new Date(),
+      nivelRisco,
+      total_count: detection.detections.length,
+      detections: detection.detections,
+      imagemUrl: `/uploads/${req.file.filename}`,
+      cultura: result.cultura || '',
+      perdaEstimada: 0,
+      origem: 'deteccao',
+      localizacao: req.body.location || ''
+    }).save();
 
     await User.findByIdAndUpdate(req.userId, {
       $inc: { 'estatisticas.totalScans': 1, 'estatisticas.pragasDetectadas': detection.detections.length }

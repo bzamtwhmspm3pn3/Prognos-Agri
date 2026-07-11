@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { Users, MessageCircle, Heart, Share2, Eye, Plus, Search, Tag, X, Send, Loader, AlertCircle } from 'lucide-react';
 import PrognosCard from '../components/PrognosCard';
 import { usePrognos } from '../contexts/PrognosContext';
-import { criarPost, likePost, comentar, listarGrupos, criarGrupo, entrarGrupo, getTagsPopulares } from '../../services/communityService';
+import { listarPosts, criarPost, likePost, comentar, listarGrupos, criarGrupo, entrarGrupo, getTagsPopulares } from '../../services/communityService';
 
 const tipoOptions = ['post', 'pergunta', 'artigo', 'dica'];
 

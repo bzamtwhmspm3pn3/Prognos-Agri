@@ -6,7 +6,7 @@ const path = require('path');
 const getProfile = async (req, res) => {
   try {
     const { userId } = req.params;
-    if (req.userId !== userId) {
+    if (req.userId.toString() !== userId) {
       return res.status(403).json({ success: false, message: 'Acesso negado' });
     }
 
@@ -39,7 +39,7 @@ const getProfile = async (req, res) => {
 const updateProfile = async (req, res) => {
   try {
     const { userId } = req.params;
-    if (req.userId !== userId) {
+    if (req.userId.toString() !== userId) {
       return res.status(403).json({ success: false, message: 'Acesso negado' });
     }
 
@@ -87,7 +87,7 @@ const updateProfile = async (req, res) => {
 const uploadProfileImage = async (req, res) => {
   try {
     const { userId } = req.params;
-    if (req.userId !== userId) {
+    if (req.userId.toString() !== userId) {
       return res.status(403).json({ success: false, message: 'Acesso negado' });
     }
 
@@ -118,7 +118,7 @@ const uploadProfileImage = async (req, res) => {
 const activatePlan = async (req, res) => {
   try {
     const { userId } = req.params;
-    if (req.userId !== userId) {
+    if (req.userId.toString() !== userId) {
       return res.status(403).json({ success: false, message: 'Acesso negado' });
     }
 
