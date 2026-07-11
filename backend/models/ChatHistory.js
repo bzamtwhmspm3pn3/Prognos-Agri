@@ -20,7 +20,7 @@ const chatHistorySchema = new mongoose.Schema({
       contexto: {
         tipo: {
           type: String,
-          enum: ['geral', 'praga', 'clima', 'mercado', 'plantio', 'tecnico']
+          enum: ['geral', 'praga', 'clima', 'mercado', 'plantio', 'tecnico', 'ia']
         },
         dadosRelacionados: mongoose.Schema.Types.Mixed
       },
