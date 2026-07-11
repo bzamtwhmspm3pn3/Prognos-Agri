@@ -30,8 +30,10 @@ export default function Community() {
   const [msgTexto, setMsgTexto] = useState('');
   const [loadingMsgs, setLoadingMsgs] = useState(false);
   const [gruposDetalhe, setGruposDetalhe] = useState({});
-  const [showPublicarNoGrupo, setShowPublicarNoGrupo] = useState(false);
-  const [postGrupo, setPostGrupo] = useState({ titulo: '', conteudo: '', tipo: 'post', tags: '' });
+  const [modoPublicar, setModoPublicar] = useState(false);
+  const [postTitulo, setPostTitulo] = useState('');
+  const [postTipo, setPostTipo] = useState('post');
+  const [postTags, setPostTags] = useState('');
   const [submittingPost, setSubmittingPost] = useState(false);
   const chatEndRef = useRef(null);
 
@@ -87,31 +89,46 @@ export default function Community() {
   const voltarGrupos = () => {
     setChatGroup(null);
     setMensagens([]);
-    setShowPublicarNoGrupo(false);
+    setModoPublicar(false);
   };
 
-  const handlePublicarNoGrupo = async (e) => {
+  const handleEnviarOuPublicar = async (e) => {
     e.preventDefault();
-    if (!postGrupo.titulo.trim() || !postGrupo.conteudo.trim()) return;
-    try {
-      setSubmittingPost(true);
-      const tags = postGrupo.tags.split(',').map(t => t.trim()).filter(Boolean);
-      const res = await criarPost({
-        titulo: postGrupo.titulo,
-        conteudo: postGrupo.conteudo,
-        tipo: postGrupo.tipo,
-        grupo: chatGroup.nome,
-        tags
-      });
-      if (res.success) {
-        setPosts(prev => [res.data || res.post, ...prev]);
-        setPostGrupo({ titulo: '', conteudo: '', tipo: 'post', tags: '' });
-        setShowPublicarNoGrupo(false);
+    if (modoPublicar) {
+      if (!postTitulo.trim() || !msgTexto.trim()) return;
+      try {
+        setSubmittingPost(true);
+        const tags = postTags.split(',').map(t => t.trim()).filter(Boolean);
+        const res = await criarPost({
+          titulo: postTitulo,
+          conteudo: msgTexto,
+          tipo: postTipo,
+          grupo: chatGroup.nome,
+          tags
+        });
+        if (res.success) {
+          setPosts(prev => [res.data || res.post, ...prev]);
+          setPostTitulo('');
+          setMsgTexto('');
+          setPostTags('');
+          setModoPublicar(false);
+        }
+      } catch (err) {
+        console.error('Erro ao publicar:', err);
+      } finally {
+        setSubmittingPost(false);
       }
-    } catch (err) {
-      console.error('Erro ao publicar no feed:', err);
-    } finally {
-      setSubmittingPost(false);
+    } else {
+      if (!msgTexto.trim()) return;
+      try {
+        const res = await enviarMensagem(chatGroup._id, msgTexto);
+        if (res.success) {
+          setMensagens(prev => [...prev, res.data]);
+          setMsgTexto('');
+        }
+      } catch (err) {
+        console.error('Erro ao enviar mensagem:', err);
+      }
     }
   };
 
@@ -360,11 +377,6 @@ export default function Community() {
               </div>
             </div>
             <div style={{ display: 'flex', gap: '8px' }}>
-              {isMember && (
-                <button className="btn btn-sm btn-outline" onClick={() => setShowPublicarNoGrupo(true)}>
-                  <FileText size={14} /> Publicar no Feed
-                </button>
-              )}
               {!isMember && (
                 <button className="btn btn-primary btn-sm" onClick={() => handleEntrarGrupo(chatGroup)}>
                   <LogIn size={14} /> Entrar
@@ -392,16 +404,66 @@ export default function Community() {
           </div>
 
           {isMember && (
-            <form onSubmit={handleEnviarMsg} style={{
-              display: 'flex', gap: '8px', padding: '12px 16px',
+            <form onSubmit={handleEnviarOuPublicar} style={{
+              padding: '12px 16px',
               borderTop: '1px solid var(--border)', background: 'var(--bg-card)'
             }}>
-              <input type="text" className="input" placeholder="Escrever mensagem..."
-                value={msgTexto} onChange={e => setMsgTexto(e.target.value)}
-                style={{ flex: 1 }} />
-              <button type="submit" className="btn btn-primary" disabled={!msgTexto.trim()}>
-                <Send size={16} />
-              </button>
+              <div style={{ display: 'flex', gap: '4px', marginBottom: '8px' }}>
+                <button type="button"
+                  onClick={() => setModoPublicar(false)}
+                  style={{
+                    flex: 1, padding: '6px', fontSize: '0.75rem', fontWeight: 600,
+                    background: !modoPublicar ? 'var(--primary)' : 'transparent',
+                    color: !modoPublicar ? 'white' : 'var(--text-secondary)',
+                    border: '1px solid', borderColor: !modoPublicar ? 'var(--primary)' : 'var(--border)',
+                    borderRadius: '6px', cursor: 'pointer'
+                  }}>
+                  💬 Mensagem
+                </button>
+                <button type="button"
+                  onClick={() => setModoPublicar(true)}
+                  style={{
+                    flex: 1, padding: '6px', fontSize: '0.75rem', fontWeight: 600,
+                    background: modoPublicar ? 'var(--primary)' : 'transparent',
+                    color: modoPublicar ? 'white' : 'var(--text-secondary)',
+                    border: '1px solid', borderColor: modoPublicar ? 'var(--primary)' : 'var(--border)',
+                    borderRadius: '6px', cursor: 'pointer'
+                  }}>
+                  📢 Publicar no Feed
+                </button>
+              </div>
+              {modoPublicar && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '8px' }}>
+                  <div className="grid-2" style={{ gap: '8px' }}>
+                    <input type="text" className="input" placeholder="Título da publicação" required
+                      value={postTitulo}
+                      onChange={e => setPostTitulo(e.target.value)}
+                      style={{ fontSize: '0.8rem', padding: '6px 10px' }} />
+                    <select className="input" value={postTipo}
+                      onChange={e => setPostTipo(e.target.value)}
+                      style={{ fontSize: '0.8rem', padding: '6px 10px' }}>
+                      <option value="post">Post</option>
+                      <option value="artigo">Artigo</option>
+                      <option value="pergunta">Pergunta</option>
+                      <option value="dica">Dica</option>
+                    </select>
+                  </div>
+                  <input type="text" className="input" placeholder="Tags (ex: milho, pragas)"
+                    value={postTags}
+                    onChange={e => setPostTags(e.target.value)}
+                    style={{ fontSize: '0.8rem', padding: '6px 10px' }} />
+                </div>
+              )}
+              <div style={{ display: 'flex', gap: '8px' }}>
+                <textarea className="input" placeholder={modoPublicar ? 'Escrever conteúdo do post...' : 'Escrever mensagem...'}
+                  value={msgTexto} onChange={e => setMsgTexto(e.target.value)}
+                  style={{ flex: 1, fontSize: '0.85rem', resize: 'none' }}
+                  rows={modoPublicar ? 3 : 1} />
+                <button type="submit" className="btn btn-primary" style={{ alignSelf: 'flex-end' }}
+                  disabled={modoPublicar ? (!postTitulo.trim() || !msgTexto.trim()) : !msgTexto.trim()}>
+                  {submittingPost ? <Loader size={16} className="spinner" /> : <Send size={16} />}
+                </button>
+              </div>
             </form>
           )}
         </div>
@@ -472,57 +534,6 @@ export default function Community() {
         </div>
       </div>
 
-      {showPublicarNoGrupo && (
-        <div className="modal-overlay" onClick={() => setShowPublicarNoGrupo(false)}>
-          <div className="modal-content" onClick={e => e.stopPropagation()}>
-            <div className="modal-header">
-              <h2 className="modal-title">📢 Publicar no Feed — {chatGroup.nome}</h2>
-              <button className="modal-close" onClick={() => setShowPublicarNoGrupo(false)}>✕</button>
-            </div>
-            <form onSubmit={handlePublicarNoGrupo} style={{ display: 'grid', gap: '16px' }}>
-              <div className="input-group">
-                <label className="input-label">Título</label>
-                <input type="text" className="input" placeholder="Título da publicação" required
-                  value={postGrupo.titulo}
-                  onChange={e => setPostGrupo(prev => ({ ...prev, titulo: e.target.value }))} />
-              </div>
-              <div className="input-group">
-                <label className="input-label">Conteúdo</label>
-                <textarea className="input" placeholder="Escreva o conteúdo..." rows={4} required
-                  value={postGrupo.conteudo}
-                  onChange={e => setPostGrupo(prev => ({ ...prev, conteudo: e.target.value }))} />
-              </div>
-              <div className="grid-2">
-                <div className="input-group">
-                  <label className="input-label">Tipo</label>
-                  <select className="input" value={postGrupo.tipo}
-                    onChange={e => setPostGrupo(prev => ({ ...prev, tipo: e.target.value }))}>
-                    <option value="post">Post</option>
-                    <option value="artigo">Artigo</option>
-                    <option value="pergunta">Pergunta</option>
-                    <option value="dica">Dica</option>
-                  </select>
-                </div>
-                <div className="input-group">
-                  <label className="input-label">Tags (vírgula)</label>
-                  <input type="text" className="input" placeholder="Ex: milho, pragas"
-                    value={postGrupo.tags}
-                    onChange={e => setPostGrupo(prev => ({ ...prev, tags: e.target.value }))} />
-                </div>
-              </div>
-              <div style={{ display: 'flex', gap: '12px' }}>
-                <button type="submit" className="btn btn-primary" style={{ flex: 1 }} disabled={submittingPost}>
-                  {submittingPost ? <Loader size={16} className="spinner" /> : <FileText size={16} />}
-                  {submittingPost ? 'A publicar...' : 'Publicar no Feed'}
-                </button>
-                <button type="button" className="btn btn-ghost" onClick={() => setShowPublicarNoGrupo(false)}>
-                  Cancelar
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
     </>
     );
   };
