@@ -110,6 +110,7 @@ export default function Community() {
 
   const abrirChat = async (grupo) => {
     setChatGroup(grupo);
+    if (!gruposDetalhe[grupo._id]?.membros) await carregarDados();
     await carregarMensagens(grupo._id);
   };
 
@@ -426,10 +427,19 @@ export default function Community() {
             <button className="btn btn-ghost btn-sm" onClick={voltarGrupos}>
               <ArrowLeft size={18} />
             </button>
-            <div style={{ flex: 1 }}>
-              <div style={{ fontWeight: 600 }}>{chatGroup.nome}</div>
-              <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-                {membros.length} membro{membros.length !== 1 ? 's' : ''}
+            <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <div style={{
+                width: '36px', height: '36px', borderRadius: '10px', flexShrink: 0, overflow: 'hidden',
+                background: 'var(--bg-body)', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                fontSize: '1.2rem'
+              }}>
+                {g.foto ? <img src={g.foto} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : '👥'}
+              </div>
+              <div>
+                <div style={{ fontWeight: 600 }}>{chatGroup.nome}</div>
+                <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                  {membros.length} membro{membros.length !== 1 ? 's' : ''}
+                </div>
               </div>
             </div>
             <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
@@ -715,11 +725,33 @@ export default function Community() {
                   value={editGroupData.descricao}
                   onChange={e => setEditGroupData(prev => ({ ...prev, descricao: e.target.value }))} />
               </div>
-              {editGroupData.foto && (
-                <div style={{ textAlign: 'center' }}>
-                  <img src={editGroupData.foto} alt="Group" style={{ maxWidth: '120px', borderRadius: '12px' }} />
+              <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+                <div style={{
+                  width: '80px', height: '80px', borderRadius: '16px',
+                  background: editGroupData.foto ? 'transparent' : 'var(--bg-body)',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  fontSize: '2rem', overflow: 'hidden', flexShrink: 0,
+                  border: '2px dashed var(--border)'
+                }}>
+                  {editGroupData.foto ? (
+                    <img src={editGroupData.foto} alt="Group" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                  ) : '👥'}
                 </div>
-              )}
+                <div>
+                  <button type="button" className="btn btn-sm btn-outline" onClick={() => document.getElementById('groupFotoInput').click()}>
+                    <Camera size={14} /> {editGroupData.foto ? 'Alterar Foto' : 'Adicionar Foto'}
+                  </button>
+                  <input id="groupFotoInput" type="file" accept="image/*" style={{ display: 'none' }}
+                    onChange={async (e) => {
+                      const file = e.target.files?.[0];
+                      if (!file) return;
+                      try {
+                        const res = await uploadFile(file);
+                        if (res.success) setEditGroupData(prev => ({ ...prev, foto: res.data.url }));
+                      } catch (err) { console.error(err); }
+                    }} />
+                </div>
+              </div>
               <div style={{ display: 'flex', gap: '12px' }}>
                 <button type="submit" className="btn btn-primary" style={{ flex: 1 }}>
                   <Edit3 size={14} /> Salvar
@@ -867,15 +899,21 @@ export default function Community() {
               ) : (
                 grupos.map((g, i) => (
                   <div key={i} style={{
-                    display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                    display: 'flex', alignItems: 'center', gap: '10px',
                     padding: '10px 0', borderBottom: i < grupos.length - 1 ? '1px solid var(--border)' : 'none',
                     cursor: 'pointer'
                   }} onClick={() => abrirChat(g)}>
-                    <span style={{ fontSize: '0.9rem' }}>{g.nome}</span>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                      <span className="badge badge-accent" style={{ fontSize: '0.65rem' }}>Privado</span>
-                    <span className="badge badge-primary">{g.totalMembros || 0}</span>
+                    <div style={{
+                      width: '32px', height: '32px', borderRadius: '8px', flexShrink: 0, overflow: 'hidden',
+                      background: 'var(--bg-body)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1rem'
+                    }}>
+                      {g.foto ? <img src={g.foto} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : '👥'}
                     </div>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontSize: '0.9rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{g.nome}</div>
+                      <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>{g.totalMembros || 0} membros</div>
+                    </div>
+                    <span className="badge badge-accent" style={{ fontSize: '0.65rem' }}>Privado</span>
                   </div>
                 ))
               )}
@@ -917,9 +955,14 @@ export default function Community() {
                 Nenhum grupo encontrado. Cria o primeiro grupo!
               </p>
             ) : (
-              grupos.map((g, i) => (
-                <div key={g._id || i} className="forum-post" style={{ display: 'flex', flexDirection: 'column' }}>
-                  <div style={{ fontSize: '2rem', marginBottom: '8px' }}>👥</div>
+                grupos.map((g, i) => (
+                  <div key={g._id || i} className="forum-post" style={{ display: 'flex', flexDirection: 'column' }}>
+                    <div style={{
+                      width: '48px', height: '48px', borderRadius: '12px', marginBottom: '8px', overflow: 'hidden',
+                      background: 'var(--bg-body)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.5rem'
+                    }}>
+                      {g.foto ? <img src={g.foto} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : '👥'}
+                    </div>
                   <h3 style={{ fontWeight: 600, marginBottom: '4px' }}>{g.nome}</h3>
                   {g.descricao && (
                     <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '8px' }}>
