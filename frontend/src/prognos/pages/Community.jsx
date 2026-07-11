@@ -1,10 +1,8 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { Users, MessageCircle, Heart, Share2, Eye, Plus, Search, Tag, X, Send, Loader, AlertCircle, ArrowLeft, LogIn, UserCheck, UserX, Shield, FileText } from 'lucide-react';
+import { Users, MessageCircle, Heart, Eye, Plus, Search, Tag, Send, Loader, AlertCircle, ArrowLeft, LogIn, UserCheck, UserX, Shield, Image } from 'lucide-react';
 import PrognosCard from '../components/PrognosCard';
 import { usePrognos } from '../contexts/PrognosContext';
-import { listarPosts, criarPost, likePost, comentar, listarGrupos, criarGrupo, entrarGrupo, getTagsPopulares, listarMensagens, enviarMensagem, solicitarEntrada, aprovarMembro, removerMembro, getMensagensNaoLidas } from '../../services/communityService';
-
-const tipoOptions = ['post', 'pergunta', 'artigo', 'dica'];
+import { listarPosts, criarPost, likePost, comentar, listarGrupos, criarGrupo, getTagsPopulares, listarMensagens, enviarMensagem, solicitarEntrada, aprovarMembro, removerMembro } from '../../services/communityService';
 
 export default function Community() {
   const { user } = usePrognos();
@@ -18,10 +16,14 @@ export default function Community() {
   const [selectedPost, setSelectedPost] = useState(null);
   const [commentText, setCommentText] = useState('');
 
-  const [newPost, setNewPost] = useState({
-    titulo: '', conteudo: '', tipo: 'post', grupo: '', tags: ''
-  });
-  const [submitting, setSubmitting] = useState(false);
+  const [showPostBox, setShowPostBox] = useState(false);
+  const [postTitulo, setPostTitulo] = useState('');
+  const [postConteudo, setPostConteudo] = useState('');
+  const [postTipo, setPostTipo] = useState('post');
+  const [postTags, setPostTags] = useState('');
+  const [postGrupo, setPostGrupo] = useState('');
+  const [submittingPost, setSubmittingPost] = useState(false);
+
   const [showCriarGrupo, setShowCriarGrupo] = useState(false);
   const [newGroup, setNewGroup] = useState({ nome: '', descricao: '', categoria: 'geral', tipo: 'publico' });
 
@@ -30,11 +32,6 @@ export default function Community() {
   const [msgTexto, setMsgTexto] = useState('');
   const [loadingMsgs, setLoadingMsgs] = useState(false);
   const [gruposDetalhe, setGruposDetalhe] = useState({});
-  const [modoPublicar, setModoPublicar] = useState(false);
-  const [postTitulo, setPostTitulo] = useState('');
-  const [postTipo, setPostTipo] = useState('post');
-  const [postTags, setPostTags] = useState('');
-  const [submittingPost, setSubmittingPost] = useState(false);
   const chatEndRef = useRef(null);
 
   const carregarDados = useCallback(async () => {
@@ -89,47 +86,6 @@ export default function Community() {
   const voltarGrupos = () => {
     setChatGroup(null);
     setMensagens([]);
-    setModoPublicar(false);
-  };
-
-  const handleEnviarOuPublicar = async (e) => {
-    e.preventDefault();
-    if (modoPublicar) {
-      if (!postTitulo.trim() || !msgTexto.trim()) return;
-      try {
-        setSubmittingPost(true);
-        const tags = postTags.split(',').map(t => t.trim()).filter(Boolean);
-        const res = await criarPost({
-          titulo: postTitulo,
-          conteudo: msgTexto,
-          tipo: postTipo,
-          grupo: chatGroup.nome,
-          tags
-        });
-        if (res.success) {
-          setPosts(prev => [res.data || res.post, ...prev]);
-          setPostTitulo('');
-          setMsgTexto('');
-          setPostTags('');
-          setModoPublicar(false);
-        }
-      } catch (err) {
-        console.error('Erro ao publicar:', err);
-      } finally {
-        setSubmittingPost(false);
-      }
-    } else {
-      if (!msgTexto.trim()) return;
-      try {
-        const res = await enviarMensagem(chatGroup._id, msgTexto);
-        if (res.success) {
-          setMensagens(prev => [...prev, res.data]);
-          setMsgTexto('');
-        }
-      } catch (err) {
-        console.error('Erro ao enviar mensagem:', err);
-      }
-    }
   };
 
   const handleEnviarMsg = async (e) => {
@@ -180,6 +136,34 @@ export default function Community() {
     }
   };
 
+  const handlePublicar = async (e) => {
+    e.preventDefault();
+    if (!postTitulo.trim() || !postConteudo.trim()) return;
+    try {
+      setSubmittingPost(true);
+      const tags = postTags.split(',').map(t => t.trim()).filter(Boolean);
+      const res = await criarPost({
+        titulo: postTitulo,
+        conteudo: postConteudo,
+        tipo: postTipo,
+        grupo: postGrupo || undefined,
+        tags
+      });
+      if (res.success) {
+        setPosts(prev => [res.data || res.post, ...prev]);
+        setPostTitulo('');
+        setPostConteudo('');
+        setPostTags('');
+        setPostGrupo('');
+        setShowPostBox(false);
+      }
+    } catch (err) {
+      console.error('Erro ao publicar:', err);
+    } finally {
+      setSubmittingPost(false);
+    }
+  };
+
   const handleLike = async (postId) => {
     try {
       const res = await likePost(postId);
@@ -208,31 +192,6 @@ export default function Community() {
     }
   };
 
-  const handleCriarPost = async (e) => {
-    e.preventDefault();
-    if (!newPost.titulo.trim() || !newPost.conteudo.trim()) return;
-    try {
-      setSubmitting(true);
-      const tags = newPost.tags.split(',').map(t => t.trim()).filter(Boolean);
-      const res = await criarPost({
-        titulo: newPost.titulo,
-        conteudo: newPost.conteudo,
-        tipo: newPost.tipo,
-        grupo: newPost.grupo || undefined,
-        tags
-      });
-      if (res.success) {
-        setPosts(prev => [res.data || res.post, ...prev]);
-        setNewPost({ titulo: '', conteudo: '', tipo: 'post', grupo: '', tags: '' });
-        setTab('feed');
-      }
-    } catch (err) {
-      console.error('Erro ao criar post:', err);
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
   const handleCriarGrupo = async (e) => {
     e.preventDefault();
     if (!newGroup.nome.trim()) return;
@@ -255,12 +214,6 @@ export default function Community() {
            (p.conteudo || '').toLowerCase().includes(q) ||
            (p.tags || []).some(t => t.toLowerCase().includes(q));
   });
-
-  const tabs = [
-    { id: 'feed', label: 'Feed' },
-    { id: 'grupos', label: 'Grupos' },
-    { id: 'publicar', label: 'Publicar' },
-  ];
 
   const getUserId = (m) => {
     if (!m?.usuarioId) return null;
@@ -359,7 +312,7 @@ export default function Community() {
     const isAdmin = ehAdmin(chatGroup);
     const isMember = ehMembro(chatGroup);
 
-    return (<>
+    return (
       <div style={{ display: 'flex', gap: '16px', height: 'calc(100vh - 200px)' }}>
         <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
           <div style={{
@@ -376,13 +329,11 @@ export default function Community() {
                 {membros.length} membro{membros.length !== 1 ? 's' : ''}
               </div>
             </div>
-            <div style={{ display: 'flex', gap: '8px' }}>
-              {!isMember && (
-                <button className="btn btn-primary btn-sm" onClick={() => handleEntrarGrupo(chatGroup)}>
-                  <LogIn size={14} /> Entrar
-                </button>
-              )}
-            </div>
+            {!isMember && (
+              <button className="btn btn-primary btn-sm" onClick={() => handleEntrarGrupo(chatGroup)}>
+                <LogIn size={14} /> {chatGroup.tipo === 'privado' ? 'Solicitar' : 'Entrar'}
+              </button>
+            )}
           </div>
 
           <div style={{
@@ -404,66 +355,16 @@ export default function Community() {
           </div>
 
           {isMember && (
-            <form onSubmit={handleEnviarOuPublicar} style={{
-              padding: '12px 16px',
+            <form onSubmit={handleEnviarMsg} style={{
+              display: 'flex', gap: '8px', padding: '12px 16px',
               borderTop: '1px solid var(--border)', background: 'var(--bg-card)'
             }}>
-              <div style={{ display: 'flex', gap: '4px', marginBottom: '8px' }}>
-                <button type="button"
-                  onClick={() => setModoPublicar(false)}
-                  style={{
-                    flex: 1, padding: '6px', fontSize: '0.75rem', fontWeight: 600,
-                    background: !modoPublicar ? 'var(--primary)' : 'transparent',
-                    color: !modoPublicar ? 'white' : 'var(--text-secondary)',
-                    border: '1px solid', borderColor: !modoPublicar ? 'var(--primary)' : 'var(--border)',
-                    borderRadius: '6px', cursor: 'pointer'
-                  }}>
-                  💬 Mensagem
-                </button>
-                <button type="button"
-                  onClick={() => setModoPublicar(true)}
-                  style={{
-                    flex: 1, padding: '6px', fontSize: '0.75rem', fontWeight: 600,
-                    background: modoPublicar ? 'var(--primary)' : 'transparent',
-                    color: modoPublicar ? 'white' : 'var(--text-secondary)',
-                    border: '1px solid', borderColor: modoPublicar ? 'var(--primary)' : 'var(--border)',
-                    borderRadius: '6px', cursor: 'pointer'
-                  }}>
-                  📢 Publicar no Feed
-                </button>
-              </div>
-              {modoPublicar && (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '8px' }}>
-                  <div className="grid-2" style={{ gap: '8px' }}>
-                    <input type="text" className="input" placeholder="Título da publicação" required
-                      value={postTitulo}
-                      onChange={e => setPostTitulo(e.target.value)}
-                      style={{ fontSize: '0.8rem', padding: '6px 10px' }} />
-                    <select className="input" value={postTipo}
-                      onChange={e => setPostTipo(e.target.value)}
-                      style={{ fontSize: '0.8rem', padding: '6px 10px' }}>
-                      <option value="post">Post</option>
-                      <option value="artigo">Artigo</option>
-                      <option value="pergunta">Pergunta</option>
-                      <option value="dica">Dica</option>
-                    </select>
-                  </div>
-                  <input type="text" className="input" placeholder="Tags (ex: milho, pragas)"
-                    value={postTags}
-                    onChange={e => setPostTags(e.target.value)}
-                    style={{ fontSize: '0.8rem', padding: '6px 10px' }} />
-                </div>
-              )}
-              <div style={{ display: 'flex', gap: '8px' }}>
-                <textarea className="input" placeholder={modoPublicar ? 'Escrever conteúdo do post...' : 'Escrever mensagem...'}
-                  value={msgTexto} onChange={e => setMsgTexto(e.target.value)}
-                  style={{ flex: 1, fontSize: '0.85rem', resize: 'none' }}
-                  rows={modoPublicar ? 3 : 1} />
-                <button type="submit" className="btn btn-primary" style={{ alignSelf: 'flex-end' }}
-                  disabled={modoPublicar ? (!postTitulo.trim() || !msgTexto.trim()) : !msgTexto.trim()}>
-                  {submittingPost ? <Loader size={16} className="spinner" /> : <Send size={16} />}
-                </button>
-              </div>
+              <input type="text" className="input" placeholder="Escrever mensagem..."
+                value={msgTexto} onChange={e => setMsgTexto(e.target.value)}
+                style={{ flex: 1 }} />
+              <button type="submit" className="btn btn-primary" disabled={!msgTexto.trim()}>
+                <Send size={16} />
+              </button>
             </form>
           )}
         </div>
@@ -491,7 +392,7 @@ export default function Community() {
                       alignItems: 'center', justifyContent: 'center',
                       fontSize: '0.65rem', fontWeight: 'bold', color: 'var(--text-secondary)'
                     }}>
-                      {(getUserName(m)).charAt(0).toUpperCase()}
+                      {getUserName(m).charAt(0).toUpperCase()}
                     </div>
                     <span>{getUserName(m)}</span>
                   </div>
@@ -533,8 +434,6 @@ export default function Community() {
           )}
         </div>
       </div>
-
-    </>
     );
   };
 
@@ -574,7 +473,7 @@ export default function Community() {
           {post.titulo}
         </h3>
         <p style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', lineHeight: 1.6, marginBottom: '12px' }}>
-          {(post.conteudo || '').substring(0, 200)}{(post.conteudo || '').length > 200 ? '...' : ''}
+          {(post.conteudo || '').substring(0, 300)}{(post.conteudo || '').length > 300 ? '...' : ''}
         </p>
 
         {post.tags?.length > 0 && (
@@ -687,16 +586,85 @@ export default function Community() {
       )}
 
       <div className="tabs">
-        {tabs.map(t => (
-          <button key={t.id} className={`tab ${tab === t.id ? 'active' : ''}`} onClick={() => setTab(t.id)}>
-            {t.label}
-          </button>
-        ))}
+        <button className={`tab ${tab === 'feed' ? 'active' : ''}`} onClick={() => setTab('feed')}>Feed</button>
+        <button className={`tab ${tab === 'grupos' ? 'active' : ''}`} onClick={() => setTab('grupos')}>Grupos</button>
       </div>
 
       {tab === 'feed' && (
         <div className="grid-2" style={{ gap: '24px', alignItems: 'start' }}>
           <div>
+
+            <div style={{
+              background: 'var(--bg-card)', borderRadius: 'var(--radius)',
+              padding: '16px', marginBottom: '16px',
+              border: '1px solid var(--border)'
+            }}>
+              {!showPostBox ? (
+                <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+                  <div style={{
+                    width: '40px', height: '40px', borderRadius: '50%',
+                    background: 'linear-gradient(135deg, var(--primary), var(--secondary))',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    color: 'white', fontSize: '0.9rem', fontWeight: 'bold', flexShrink: 0
+                  }}>
+                    {(user?.username || 'A').charAt(0).toUpperCase()}
+                  </div>
+                  <input type="text" className="input" placeholder="O que estás a pensar?" readOnly
+                    onClick={() => setShowPostBox(true)}
+                    style={{ flex: 1, cursor: 'pointer' }} />
+                </div>
+              ) : (
+                <form onSubmit={handlePublicar} style={{ display: 'grid', gap: '12px' }}>
+                  <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+                    <div style={{
+                      width: '40px', height: '40px', borderRadius: '50%',
+                      background: 'linear-gradient(135deg, var(--primary), var(--secondary))',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      color: 'white', fontSize: '0.9rem', fontWeight: 'bold', flexShrink: 0
+                    }}>
+                      {(user?.username || 'A').charAt(0).toUpperCase()}
+                    </div>
+                    <input type="text" className="input" placeholder="Título" required
+                      value={postTitulo} onChange={e => setPostTitulo(e.target.value)}
+                      style={{ flex: 1 }} />
+                  </div>
+                  <textarea className="input" placeholder="Escreve o teu artigo, pergunta ou dica..." rows={4} required
+                    value={postConteudo} onChange={e => setPostConteudo(e.target.value)} />
+                  <div className="grid-2" style={{ gap: '12px' }}>
+                    <div style={{ display: 'flex', gap: '8px' }}>
+                      <select className="input" value={postTipo}
+                        onChange={e => setPostTipo(e.target.value)}
+                        style={{ width: 'auto', minWidth: '120px' }}>
+                        <option value="post">Post</option>
+                        <option value="artigo">Artigo</option>
+                        <option value="pergunta">Pergunta</option>
+                        <option value="dica">Dica</option>
+                      </select>
+                      <input type="text" className="input" placeholder="Tags (ex: milho, pragas)"
+                        value={postTags} onChange={e => setPostTags(e.target.value)}
+                        style={{ flex: 1 }} />
+                    </div>
+                    <select className="input" value={postGrupo}
+                      onChange={e => setPostGrupo(e.target.value)}>
+                      <option value="">Sem grupo (público)</option>
+                      {grupos.map((g, i) => (
+                        <option key={i} value={g.nome || g._id}>{g.nome}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
+                    <button type="button" className="btn btn-ghost" onClick={() => { setShowPostBox(false); setPostTitulo(''); setPostConteudo(''); setPostTags(''); setPostGrupo(''); }}>
+                      Cancelar
+                    </button>
+                    <button type="submit" className="btn btn-primary" disabled={submittingPost}>
+                      {submittingPost ? <Loader size={16} className="spinner" /> : <Plus size={16} />}
+                      {submittingPost ? 'A publicar...' : 'Publicar'}
+                    </button>
+                  </div>
+                </form>
+              )}
+            </div>
+
             <div style={{ marginBottom: '16px' }}>
               <div style={{ position: 'relative' }}>
                 <Search size={16} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
@@ -708,7 +676,7 @@ export default function Community() {
 
             {filteredPosts.length === 0 ? (
               <p style={{ color: 'var(--text-muted)', textAlign: 'center', padding: '40px' }}>
-                {search ? 'Nenhuma publicação encontrada.' : 'Nenhuma publicação ainda. Seja o primeiro a publicar!'}
+                {search ? 'Nenhuma publicação encontrada.' : 'Nenhuma publicação ainda. Publica algo acima!'}
               </p>
             ) : (
               filteredPosts.map(renderPost)
@@ -716,7 +684,7 @@ export default function Community() {
           </div>
 
           <div>
-            <PrognosCard title="Grupos Populares" icon={<Users size={18} />}>
+            <PrognosCard title="Grupos" icon={<Users size={18} />}>
               {grupos.length === 0 ? (
                 <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem', textAlign: 'center', padding: '12px' }}>
                   Nenhum grupo ainda
@@ -730,11 +698,16 @@ export default function Community() {
                   }} onClick={() => abrirChat(g)}>
                     <span style={{ fontSize: '0.9rem' }}>{g.nome}</span>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                      <span className="badge badge-primary">{g.totalMembros || 0} membros</span>
+                      {g.tipo === 'privado' && <span className="badge badge-accent" style={{ fontSize: '0.65rem' }}>Privado</span>}
+                      <span className="badge badge-primary">{g.totalMembros || 0}</span>
                     </div>
                   </div>
                 ))
               )}
+              <button className="btn btn-sm btn-ghost" style={{ width: '100%', marginTop: '8px' }}
+                onClick={() => setTab('grupos')}>
+                Ver todos os grupos
+              </button>
             </PrognosCard>
 
             {tagsPopulares.length > 0 && (
@@ -788,7 +761,7 @@ export default function Community() {
                     </button>
                     {!ehMembro(g) && (
                       <button className="btn btn-sm btn-outline" onClick={() => handleEntrarGrupo(g)}>
-                        <LogIn size={14} /> {g.tipo === 'privado' ? 'Solicitar Entrada' : 'Entrar'}
+                        <LogIn size={14} /> {g.tipo === 'privado' ? 'Solicitar' : 'Entrar'}
                       </button>
                     )}
                   </div>
@@ -797,55 +770,6 @@ export default function Community() {
             )}
           </div>
         </div>
-      )}
-
-      {tab === 'publicar' && (
-        <PrognosCard title="Nova Publicação">
-          <form onSubmit={handleCriarPost} style={{ display: 'grid', gap: '16px' }}>
-            <div className="grid-2">
-              <div className="input-group">
-                <label className="input-label">Título</label>
-                <input type="text" className="input" placeholder="Título da publicação" required
-                  value={newPost.titulo} onChange={e => setNewPost(prev => ({ ...prev, titulo: e.target.value }))} />
-              </div>
-              <div className="input-group">
-                <label className="input-label">Tipo</label>
-                <select className="input" value={newPost.tipo}
-                  onChange={e => setNewPost(prev => ({ ...prev, tipo: e.target.value }))}>
-                  {tipoOptions.map(t => <option key={t} value={t}>{t.charAt(0).toUpperCase() + t.slice(1)}</option>)}
-                </select>
-              </div>
-            </div>
-            <div className="input-group">
-              <label className="input-label">Conteúdo</label>
-              <textarea className="input" placeholder="Escreva o seu conteúdo..." rows={6} required
-                value={newPost.conteudo} onChange={e => setNewPost(prev => ({ ...prev, conteudo: e.target.value }))} />
-            </div>
-            <div className="grid-2">
-              <div className="input-group">
-                <label className="input-label">Grupo</label>
-                <select className="input" value={newPost.grupo}
-                  onChange={e => setNewPost(prev => ({ ...prev, grupo: e.target.value }))}>
-                  <option value="">Sem grupo</option>
-                  {grupos.map((g, i) => (
-                    <option key={i} value={g.nome || g._id}>{g.nome || g._id}</option>
-                  ))}
-                </select>
-              </div>
-              <div className="input-group">
-                <label className="input-label">Tags (separadas por vírgula)</label>
-                <input type="text" className="input" placeholder="Ex: milho, pragas, dicas"
-                  value={newPost.tags} onChange={e => setNewPost(prev => ({ ...prev, tags: e.target.value }))} />
-              </div>
-            </div>
-            <div>
-              <button type="submit" className="btn btn-primary btn-lg" disabled={submitting}>
-                {submitting ? <Loader size={18} className="spinner" /> : <Plus size={18} />}
-                {submitting ? 'A publicar...' : 'Publicar'}
-              </button>
-            </div>
-          </form>
-        </PrognosCard>
       )}
 
       {showCriarGrupo && (
