@@ -123,12 +123,14 @@ Pergunta: ${mensagem}`;
         `https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent?key=${apiKey}`,
         {
           contents: [{ parts: [{ text: prompt }] }],
-          generationConfig: { temperature: 0.7, maxOutputTokens: 400 }
+          generationConfig: { temperature: 0.7, maxOutputTokens: 800 }
         },
         { timeout: 15000 }
       );
 
+      const finishReason = response.data?.candidates?.[0]?.finishReason;
       const texto = response.data?.candidates?.[0]?.content?.parts?.[0]?.text;
+      console.log('Gemini OK - finish:', finishReason, 'len:', texto?.length);
       if (texto) {
         return {
           texto,
