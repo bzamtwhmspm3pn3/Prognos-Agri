@@ -6,12 +6,14 @@ import {
   ArrowRight, Shield, TrendingUp, MapPin,
   Droplets, Sun, Wind, ChevronDown, Play, Pause,
   Quote, Globe, Heart, Target, Eye, ChevronRight,
-  Star, CheckCircle, ExternalLink, BarChart3, FileText, User
+  Star, CheckCircle, ExternalLink, BarChart3, FileText, User,
+  Loader, Send
 } from 'lucide-react';
 import logoPrincipal from '../../assets/logo-principal.png';
 import logoMinagrif from '../../assets/logo-minagrif.png';
 import logoIDA from '../../assets/logo-ida.jpg';
 import logoPNUD from '../../assets/logo-pnud.svg';
+import { getAvaliacoes, createAvaliacao } from '../../services/avaliacaoService';
 const logoBDA = 'https://www.bda.ao/theme/images/bda-logo-neg.svg';
 
 function CountUp({ end, duration = 2, suffix = '' }) {
@@ -68,6 +70,47 @@ export default function FreeLanding() {
   const [videoPlaying, setVideoPlaying] = useState(true);
   const [mobileMenu, setMobileMenu] = useState(false);
   const videoRef = useRef(null);
+
+  const [avaliacoes, setAvaliacoes] = useState([]);
+  const [avaliacoesStats, setAvaliacoesStats] = useState({ media: 0, total: 0 });
+  const [avaliacoesLoading, setAvaliacoesLoading] = useState(true);
+  const [avaliacaoForm, setAvaliacaoForm] = useState({ estrelas: 0, comentario: '' });
+  const [avaliacaoSubmitting, setAvaliacaoSubmitting] = useState(false);
+  const [avaliacaoSent, setAvaliacaoSent] = useState(false);
+  const [avaliacaoError, setAvaliacaoError] = useState('');
+
+  useEffect(() => {
+    getAvaliacoes({ aprovadas: 'true' }).then(res => {
+      if (res.success) {
+        setAvaliacoes(res.data || []);
+        setAvaliacoesStats(res.stats || { media: 0, total: 0 });
+      }
+    }).catch(() => {}).finally(() => setAvaliacoesLoading(false));
+  }, []);
+
+  const handleEnviarAvaliacao = async (e) => {
+    e.preventDefault();
+    if (avaliacaoForm.estrelas === 0) {
+      setAvaliacaoError('Seleccione uma classificação');
+      return;
+    }
+    try {
+      setAvaliacaoSubmitting(true);
+      setAvaliacaoError('');
+      const res = await createAvaliacao({
+        estrelas: avaliacaoForm.estrelas,
+        comentario: avaliacaoForm.comentario
+      });
+      if (res.success) {
+        setAvaliacaoSent(true);
+        setAvaliacaoForm({ estrelas: 0, comentario: '' });
+      }
+    } catch (err) {
+      setAvaliacaoError('Erro ao enviar avaliação. Faça login primeiro.');
+    } finally {
+      setAvaliacaoSubmitting(false);
+    }
+  };
 
   const recursos = [
     { icon: <Camera size={24} />, titulo: 'Detecção de Pragas', desc: 'Identifique pragas com IA usando YOLOv8. Proteja a sua colheita em tempo real.', cor: '#ef4444' },
@@ -676,60 +719,134 @@ export default function FreeLanding() {
         </div>
       </section>
 
-      {/* ===== TESTEMUNHOS ===== */}
+      {/* ===== AVALIAÇÕES REAIS ===== */}
       <section style={{ padding: '80px 24px', background: '#003366' }}>
-        <div style={{ maxWidth: '800px', margin: '0 auto' }}>
+        <div style={{ maxWidth: '900px', margin: '0 auto' }}>
           <SectionTitle light subtitle="Agricultores e parceiros que já transformaram a sua produção com o Prognos Agri.">
             O Que Dizem Sobre Nós
           </SectionTitle>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
-            {[
-              { nome: 'João Miguel', cargo: 'Agricultor — Malanje', texto: 'Com o Prognos Agri consegui detectar uma infestação de gafanhotos antes que destruísse a minha colheita de milho. A IA alertou-me a tempo e salvei 80% da produção.' },
-              { nome: 'Maria Sebastião', cargo: 'Cooperativa Kwanza Sul', texto: 'A rastreabilidade blockchain abriu portas para exportarmos o nosso café. Os compradores internacionais confiam na certificação digital.' },
-              { nome: 'Dr. Pedro Afonso', cargo: 'Técnico Agrónomo — MINAGRIF', texto: 'Uma ferramenta extraordinária para a extensão rural. Conseguimos monitorar centenas de talhões em tempo real e dar assistência direcionada.' },
-            ].map((item, i) => (
-              <motion.div
-                key={i}
-                initial={{ opacity: 0, x: i % 2 === 0 ? -30 : 30 }}
-                whileInView={{ opacity: 1, x: 0 }}
-                viewport={{ once: true }}
-                transition={{ delay: i * 0.15 }}
-                style={{
-                  padding: '28px 32px', borderRadius: '16px',
-                  background: 'rgba(255,255,255,0.08)',
-                  border: '1px solid rgba(255,255,255,0.1)',
-                  position: 'relative'
-                }}
-              >
-                <Quote size={32} color="rgba(245,166,35,0.3)" style={{ position: 'absolute', top: '16px', left: '16px' }} />
-                <p style={{
-                  fontSize: '0.95rem', color: 'rgba(255,255,255,0.85)',
-                  lineHeight: 1.7, fontStyle: 'italic',
-                  marginBottom: '16px', paddingLeft: '24px'
-                }}>
-                  "{item.texto}"
-                </p>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '12px', paddingLeft: '24px' }}>
-                  <div style={{
-                    width: '40px', height: '40px', borderRadius: '50%',
-                    background: 'linear-gradient(135deg, #F5A623, #F97316)',
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    color: 'white', fontWeight: 'bold', fontSize: '1rem'
-                  }}>
-                    {item.nome.charAt(0)}
-                  </div>
-                  <div>
-                    <div style={{ fontWeight: 600, fontSize: '0.9rem', color: 'white' }}>{item.nome}</div>
-                    <div style={{ fontSize: '0.8rem', color: 'rgba(255,255,255,0.6)' }}>{item.cargo}</div>
-                  </div>
-                  <div style={{ marginLeft: 'auto' }}>
-                    {[1, 2, 3, 4, 5].map(s => (
-                      <Star key={s} size={14} color="#F5A623" fill="#F5A623" style={{ display: 'inline', marginRight: '2px' }} />
-                    ))}
-                  </div>
+
+          {avaliacoesStats.total > 0 && (
+            <div style={{
+              textAlign: 'center', marginBottom: '40px',
+              display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '24px', flexWrap: 'wrap'
+            }}>
+              <div>
+                <div style={{ fontSize: '3rem', fontWeight: 800, color: '#F5A623', lineHeight: 1 }}>
+                  {avaliacoesStats.media}
                 </div>
-              </motion.div>
-            ))}
+                <div style={{ display: 'flex', gap: '2px', justifyContent: 'center', margin: '8px 0' }}>
+                  {[1, 2, 3, 4, 5].map(s => (
+                    <Star key={s} size={16} color="#F5A623"
+                      fill={s <= Math.round(avaliacoesStats.media) ? '#F5A623' : 'none'} />
+                  ))}
+                </div>
+                <div style={{ fontSize: '0.85rem', color: 'rgba(255,255,255,0.6)' }}>
+                  {avaliacoesStats.total} avaliação(ões)
+                </div>
+              </div>
+            </div>
+          )}
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+            {avaliacoesLoading ? (
+              <div style={{ textAlign: 'center', padding: '40px' }}>
+                <Loader size={32} className="spinner" style={{ borderTopColor: '#F5A623', borderColor: 'rgba(255,255,255,0.1)' }} />
+              </div>
+            ) : (
+              (avaliacoes.length > 0 ? avaliacoes : [
+                { username: 'João Miguel', estrelas: 5, comentario: 'Com o Prognos Agri consegui detectar uma infestação de gafanhotos antes que destruísse a minha colheita de milho.', data: new Date() },
+                { username: 'Maria Sebastião', estrelas: 5, comentario: 'A rastreabilidade blockchain abriu portas para exportarmos o nosso café. Os compradores internacionais confiam na certificação digital.', data: new Date() },
+                { username: 'Dr. Pedro Afonso', estrelas: 4, comentario: 'Uma ferramenta extraordinária para a extensão rural. Conseguimos monitorar centenas de talhões em tempo real.', data: new Date() },
+              ]).map((item, i) => (
+                <motion.div
+                  key={item._id || i}
+                  initial={{ opacity: 0, x: i % 2 === 0 ? -30 : 30 }}
+                  whileInView={{ opacity: 1, x: 0 }}
+                  viewport={{ once: true }}
+                  transition={{ delay: i * 0.15 }}
+                  style={{
+                    padding: '28px 32px', borderRadius: '16px',
+                    background: 'rgba(255,255,255,0.08)',
+                    border: '1px solid rgba(255,255,255,0.1)',
+                    position: 'relative'
+                  }}
+                >
+                  <Quote size={32} color="rgba(245,166,35,0.3)" style={{ position: 'absolute', top: '16px', left: '16px' }} />
+                  <p style={{
+                    fontSize: '0.95rem', color: 'rgba(255,255,255,0.85)',
+                    lineHeight: 1.7, fontStyle: 'italic',
+                    marginBottom: '16px', paddingLeft: '24px'
+                  }}>
+                    "{item.comentario}"
+                  </p>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px', paddingLeft: '24px' }}>
+                    <div style={{
+                      width: '40px', height: '40px', borderRadius: '50%',
+                      background: 'linear-gradient(135deg, #F5A623, #F97316)',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      color: 'white', fontWeight: 'bold', fontSize: '1rem'
+                    }}>
+                      {(item.username || item.nome || 'A').charAt(0)}
+                    </div>
+                    <div>
+                      <div style={{ fontWeight: 600, fontSize: '0.9rem', color: 'white' }}>
+                        {item.username || item.nome || 'Anónimo'}
+                      </div>
+                      {item.data && (
+                        <div style={{ fontSize: '0.75rem', color: 'rgba(255,255,255,0.5)' }}>
+                          {new Date(item.data).toLocaleDateString('pt-PT')}
+                        </div>
+                      )}
+                    </div>
+                    <div style={{ marginLeft: 'auto' }}>
+                      {[1, 2, 3, 4, 5].map(s => (
+                        <Star key={s} size={14} color="#F5A623"
+                          fill={s <= item.estrelas ? '#F5A623' : 'none'}
+                          style={{ display: 'inline', marginRight: '2px' }} />
+                      ))}
+                    </div>
+                  </div>
+                </motion.div>
+              ))
+            )}
+          </div>
+
+          {/* Formulário de avaliação */}
+          <div style={{ marginTop: '48px', padding: '32px', borderRadius: '16px', background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)' }}>
+            <h3 style={{ fontFamily: "'Montserrat', sans-serif", fontWeight: 700, fontSize: '1.2rem', color: 'white', marginBottom: '8px', textAlign: 'center' }}>
+              {avaliacaoSent ? '✅ Obrigado pela sua avaliação!' : 'Deixe a sua avaliação'}
+            </h3>
+            {!avaliacaoSent ? (
+              <form onSubmit={handleEnviarAvaliacao} style={{ maxWidth: '500px', margin: '0 auto' }}>
+                <div style={{ display: 'flex', justifyContent: 'center', gap: '8px', marginBottom: '16px' }}>
+                  {[1, 2, 3, 4, 5].map(s => (
+                    <button key={s} type="button" onClick={() => setAvaliacaoForm(prev => ({ ...prev, estrelas: s }))}
+                      style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '4px' }}>
+                      <Star size={28} color="#F5A623"
+                        fill={s <= avaliacaoForm.estrelas ? '#F5A623' : 'none'}
+                        style={{ transition: 'all 0.2s', transform: s <= avaliacaoForm.estrelas ? 'scale(1.1)' : 'scale(1)' }} />
+                    </button>
+                  ))}
+                </div>
+                <textarea className="input" placeholder="Escreva o seu comentário (opcional)"
+                  rows={3} value={avaliacaoForm.comentario}
+                  onChange={e => setAvaliacaoForm(prev => ({ ...prev, comentario: e.target.value }))}
+                  style={{ background: 'rgba(255,255,255,0.1)', color: 'white', border: '1px solid rgba(255,255,255,0.2)', marginBottom: '12px' }} />
+                {avaliacaoError && (
+                  <p style={{ color: '#ef4444', fontSize: '0.85rem', marginBottom: '8px', textAlign: 'center' }}>{avaliacaoError}</p>
+                )}
+                <button type="submit" className="btn btn-accent btn-lg" disabled={avaliacaoSubmitting}
+                  style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
+                  {avaliacaoSubmitting ? <Loader size={18} className="spinner" /> : <Send size={18} />}
+                  {avaliacaoSubmitting ? 'A enviar...' : 'Enviar Avaliação'}
+                </button>
+              </form>
+            ) : (
+              <p style={{ textAlign: 'center', color: 'rgba(255,255,255,0.7)' }}>
+                A sua avaliação será publicada após aprovação.
+              </p>
+            )}
           </div>
         </div>
       </section>
