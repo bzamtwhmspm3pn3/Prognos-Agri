@@ -96,7 +96,7 @@ a:hover { color: var(--primary); }
   height: calc(100vh - 64px);
   background: var(--bg-sidebar);
   color: var(--text-light);
-  padding: 20px 0;
+  padding: 20px 0 80px;
   position: fixed;
   left: 0;
   top: 64px;
@@ -104,10 +104,13 @@ a:hover { color: var(--primary); }
   overflow-x: hidden;
   z-index: 50;
   transition: all 0.3s ease;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255,255,255,0.3) transparent;
 }
-.prognos-sidebar::-webkit-scrollbar { width: 4px; }
+.prognos-sidebar::-webkit-scrollbar { width: 6px; }
 .prognos-sidebar::-webkit-scrollbar-track { background: transparent; }
-.prognos-sidebar::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.2); border-radius: 2px; }
+.prognos-sidebar::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.25); border-radius: 3px; }
+.prognos-sidebar::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.4); }
 
 .prognos-sidebar .nav-item {
   display: flex;

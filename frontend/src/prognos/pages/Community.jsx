@@ -1,8 +1,8 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import { Users, MessageCircle, Heart, Share2, Eye, Plus, Search, Tag, X, Send, Loader, AlertCircle } from 'lucide-react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { Users, MessageCircle, Heart, Share2, Eye, Plus, Search, Tag, X, Send, Loader, AlertCircle, ArrowLeft, LogIn, UserCheck, UserX, Shield } from 'lucide-react';
 import PrognosCard from '../components/PrognosCard';
 import { usePrognos } from '../contexts/PrognosContext';
-import { listarPosts, criarPost, likePost, comentar, listarGrupos, criarGrupo, entrarGrupo, getTagsPopulares } from '../../services/communityService';
+import { listarPosts, criarPost, likePost, comentar, listarGrupos, criarGrupo, entrarGrupo, getTagsPopulares, listarMensagens, enviarMensagem, solicitarEntrada, aprovarMembro, removerMembro, getMensagensNaoLidas } from '../../services/communityService';
 
 const tipoOptions = ['post', 'pergunta', 'artigo', 'dica'];
 
@@ -25,6 +25,13 @@ export default function Community() {
   const [showCriarGrupo, setShowCriarGrupo] = useState(false);
   const [newGroup, setNewGroup] = useState({ nome: '', descricao: '', categoria: 'geral' });
 
+  const [chatGroup, setChatGroup] = useState(null);
+  const [mensagens, setMensagens] = useState([]);
+  const [msgTexto, setMsgTexto] = useState('');
+  const [loadingMsgs, setLoadingMsgs] = useState(false);
+  const [gruposDetalhe, setGruposDetalhe] = useState({});
+  const chatEndRef = useRef(null);
+
   const carregarDados = useCallback(async () => {
     try {
       setLoading(true);
@@ -35,7 +42,11 @@ export default function Community() {
         getTagsPopulares()
       ]);
       setPosts(postsRes.data || postsRes.posts || []);
-      setGrupos(gruposRes.data || gruposRes.grupos || []);
+      const gData = gruposRes.data || gruposRes.grupos || [];
+      setGrupos(gData);
+      const gMap = {};
+      gData.forEach(g => { gMap[g._id] = g; });
+      setGruposDetalhe(gMap);
       setTagsPopulares(tagsRes.data || tagsRes.tags || []);
     } catch (err) {
       console.error('Erro ao carregar comunidade:', err);
@@ -46,6 +57,82 @@ export default function Community() {
   }, []);
 
   useEffect(() => { carregarDados(); }, [carregarDados]);
+
+  useEffect(() => {
+    if (chatEndRef.current) {
+      chatEndRef.current.scrollIntoView({ behavior: 'smooth' });
+    }
+  }, [mensagens]);
+
+  const carregarMensagens = useCallback(async (grupoId) => {
+    try {
+      setLoadingMsgs(true);
+      const res = await listarMensagens(grupoId);
+      setMensagens(res.data || []);
+    } catch (err) {
+      console.error('Erro ao carregar mensagens:', err);
+    } finally {
+      setLoadingMsgs(false);
+    }
+  }, []);
+
+  const abrirChat = async (grupo) => {
+    setChatGroup(grupo);
+    await carregarMensagens(grupo._id);
+  };
+
+  const voltarGrupos = () => {
+    setChatGroup(null);
+    setMensagens([]);
+  };
+
+  const handleEnviarMsg = async (e) => {
+    e.preventDefault();
+    if (!msgTexto.trim()) return;
+    try {
+      const res = await enviarMensagem(chatGroup._id, msgTexto);
+      if (res.success) {
+        setMensagens(prev => [...prev, res.data]);
+        setMsgTexto('');
+      }
+    } catch (err) {
+      console.error('Erro ao enviar mensagem:', err);
+    }
+  };
+
+  const handleEntrarGrupo = async (grupo) => {
+    try {
+      const res = await solicitarEntrada(grupo._id);
+      if (res.success) {
+        if (res.message) alert(res.message);
+        if (res.data) setGruposDetalhe(prev => ({ ...prev, [grupo._id]: { ...prev[grupo._id], ...res.data } }));
+      }
+      carregarDados();
+    } catch (err) {
+      console.error('Erro ao entrar no grupo:', err);
+    }
+  };
+
+  const handleAprovar = async (grupoId, usuarioId) => {
+    try {
+      await aprovarMembro(grupoId, usuarioId);
+      carregarMensagens(grupoId);
+      carregarDados();
+    } catch (err) {
+      console.error('Erro ao aprovar membro:', err);
+    }
+  };
+
+  const handleRemover = async (grupoId, usuarioId) => {
+    if (!window.confirm('Remover este membro?')) return;
+    try {
+      await removerMembro(grupoId, usuarioId);
+      carregarMensagens(grupoId);
+      carregarDados();
+    } catch (err) {
+      console.error('Erro ao remover membro:', err);
+    }
+  };
 
   const handleLike = async (postId) => {
     try {
@@ -128,6 +215,215 @@ export default function Community() {
     { id: 'grupos', label: 'Grupos' },
     { id: 'publicar', label: 'Publicar' },
   ];
+
+  const ehAdmin = (grupo) => {
+    if (!user?._id || !grupo?._id) return false;
+    const g = gruposDetalhe[grupo._id] || grupo;
+    return g.membros?.some(m => m.usuarioId?.toString() === user._id && (m.cargo === 'admin' || m.cargo === 'moderador')) ||
+           g.criador === user.username;
+  };
+
+  const ehMembro = (grupo) => {
+    if (!user?._id) return false;
+    const g = gruposDetalhe[grupo._id] || grupo;
+    return g.membros?.some(m => m.usuarioId?.toString() === user._id);
+  };
+
+  const renderMensagem = (msg, index) => {
+    const isSistema = msg.tipo === 'sistema';
+    const isMine = msg.usuarioId?._id === user?._id || msg.usuarioId === user?._id;
+
+    if (isSistema) {
+      return (
+        <div key={msg._id || index} style={{
+          textAlign: 'center', fontSize: '0.75rem', color: 'var(--text-muted)',
+          padding: '4px 0', fontStyle: 'italic'
+        }}>
+          {msg.conteudo}
+        </div>
+      );
+    }
+
+    return (
+      <div key={msg._id || index} style={{
+        display: 'flex', gap: '8px', justifyContent: isMine ? 'flex-end' : 'flex-start',
+        marginBottom: '8px'
+      }}>
+        {!isMine && (
+          <div style={{
+            width: '30px', height: '30px', borderRadius: '50%',
+            background: 'linear-gradient(135deg, var(--primary), var(--secondary))',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            color: 'white', fontSize: '0.75rem', fontWeight: 'bold', flexShrink: 0
+          }}>
+            {(msg.usuarioId?.username || msg.usuarioId?.profile?.nome || 'A').charAt(0).toUpperCase()}
+          </div>
+        )}
+        <div style={{
+          maxWidth: '75%', padding: '8px 14px', borderRadius: '12px',
+          background: isMine ? 'var(--primary)' : 'var(--bg-card)',
+          color: isMine ? 'white' : 'var(--text-color)',
+          fontSize: '0.85rem', lineHeight: 1.4,
+          borderBottomRightRadius: isMine ? '4px' : '12px',
+          borderBottomLeftRadius: isMine ? '12px' : '4px'
+        }}>
+          {!isMine && (
+            <div style={{ fontWeight: 600, fontSize: '0.75rem', marginBottom: '2px', color: 'var(--text-secondary)' }}>
+              {msg.usuarioId?.username || msg.usuarioId?.profile?.nome || 'Anónimo'}
+            </div>
+          )}
+          <div>{msg.conteudo}</div>
+          <div style={{
+            fontSize: '0.65rem', opacity: 0.7, textAlign: 'right', marginTop: '2px'
+          }}>
+            {msg.createdAt ? new Date(msg.createdAt).toLocaleTimeString('pt-PT', { hour: '2-digit', minute: '2-digit' }) : ''}
+          </div>
+        </div>
+        {isMine && (
+          <div style={{
+            width: '30px', height: '30px', borderRadius: '50%',
+            background: 'var(--primary)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            color: 'white', fontSize: '0.75rem', fontWeight: 'bold', flexShrink: 0
+          }}>
+            {(user?.username || 'A').charAt(0).toUpperCase()}
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  const renderChat = () => {
+    const g = gruposDetalhe[chatGroup._id] || chatGroup;
+    const pedidos = g.pedidosPendentes || [];
+    const membros = g.membros || [];
+    const isAdmin = ehAdmin(chatGroup);
+    const isMember = ehMembro(chatGroup);
+
+    return (
+      <div style={{ display: 'flex', gap: '16px', height: 'calc(100vh - 200px)' }}>
+        <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
+          <div style={{
+            display: 'flex', alignItems: 'center', gap: '12px',
+            padding: '12px 16px', borderBottom: '1px solid var(--border)',
+            background: 'var(--bg-card)', borderRadius: 'var(--radius) var(--radius) 0 0'
+          }}>
+            <button className="btn btn-ghost btn-sm" onClick={voltarGrupos}>
+              <ArrowLeft size={18} />
+            </button>
+            <div style={{ flex: 1 }}>
+              <div style={{ fontWeight: 600 }}>{chatGroup.nome}</div>
+              <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                {membros.length} membro{membros.length !== 1 ? 's' : ''}
+              </div>
+            </div>
+            {!isMember && (
+              <button className="btn btn-primary btn-sm" onClick={() => handleEntrarGrupo(chatGroup)}>
+                <LogIn size={14} /> Entrar
+              </button>
+            )}
+          </div>
+
+          <div style={{
+            flex: 1, overflowY: 'auto', padding: '12px 16px',
+            background: 'var(--bg-body)', borderRadius: '0 0 var(--radius) var(--radius)'
+          }}>
+            {loadingMsgs ? (
+              <div style={{ display: 'flex', justifyContent: 'center', padding: '40px' }}>
+                <Loader className="spinner" />
+              </div>
+            ) : mensagens.length === 0 ? (
+              <p style={{ color: 'var(--text-muted)', textAlign: 'center', padding: '40px', fontSize: '0.85rem' }}>
+                Nenhuma mensagem ainda. {isMember ? 'Envia a primeira mensagem!' : 'Entra no grupo para participar.'}
+              </p>
+            ) : (
+              mensagens.map(renderMensagem)
+            )}
+            <div ref={chatEndRef} />
+          </div>
+
+          {isMember && (
+            <form onSubmit={handleEnviarMsg} style={{
+              display: 'flex', gap: '8px', padding: '12px 16px',
+              borderTop: '1px solid var(--border)', background: 'var(--bg-card)'
+            }}>
+              <input type="text" className="input" placeholder="Escrever mensagem..."
+                value={msgTexto} onChange={e => setMsgTexto(e.target.value)}
+                style={{ flex: 1 }} />
+              <button type="submit" className="btn btn-primary" disabled={!msgTexto.trim()}>
+                <Send size={16} />
+              </button>
+            </form>
+          )}
+        </div>
+
+        <div style={{
+          width: '240px', background: 'var(--bg-card)', borderRadius: 'var(--radius)',
+          padding: '16px', display: 'flex', flexDirection: 'column', gap: '12px',
+          flexShrink: 0, overflowY: 'auto'
+        }}>
+          <div>
+            <h4 style={{ fontWeight: 600, fontSize: '0.85rem', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <Users size={14} /> Membros ({membros.length})
+            </h4>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+              {membros.map((m, i) => (
+                <div key={i} style={{
+                  display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                  padding: '4px 8px', borderRadius: '6px', fontSize: '0.8rem',
+                  background: m.cargo === 'admin' ? 'rgba(34,197,94,0.1)' : 'transparent'
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <div style={{
+                      width: '24px', height: '24px', borderRadius: '50%',
+                      background: 'var(--bg-body)', display: 'flex',
+                      alignItems: 'center', justifyContent: 'center',
+                      fontSize: '0.65rem', fontWeight: 'bold', color: 'var(--text-secondary)'
+                    }}>
+                      {(m.usuarioId?.username || m.usuarioId || 'A').toString().charAt(0).toUpperCase()}
+                    </div>
+                    <span>{m.usuarioId?.username || m.usuarioId?.toString().substring(0, 6) || 'Desconhecido'}</span>
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                    {m.cargo === 'admin' && <Shield size={12} style={{ color: 'var(--accent)' }} />}
+                    {isAdmin && m.cargo !== 'admin' && m.usuarioId?.toString() !== user?._id && (
+                      <button onClick={() => handleRemover(chatGroup._id, m.usuarioId)}
+                        style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#ef4444', padding: '2px' }}>
+                        <UserX size={12} />
+                      </button>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {isAdmin && pedidos.length > 0 && (
+            <div>
+              <h4 style={{ fontWeight: 600, fontSize: '0.85rem', marginBottom: '8px', color: 'var(--accent)' }}>
+                Pedidos Pendentes ({pedidos.length})
+              </h4>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                {pedidos.map((p, i) => (
+                  <div key={i} style={{
+                    display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                    padding: '4px 8px', borderRadius: '6px', fontSize: '0.8rem',
+                    background: 'rgba(245,166,35,0.1)'
+                  }}>
+                    <span>{p.usuarioId?.username || p.usuarioId?.toString().substring(0, 6) || 'Desconhecido'}</span>
+                    <button onClick={() => handleAprovar(chatGroup._id, p.usuarioId)}
+                      className="btn btn-primary btn-sm" style={{ padding: '2px 8px', fontSize: '0.7rem' }}>
+                      <UserCheck size={12} /> Aprovar
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  };
 
   if (loading && posts.length === 0) {
     return <div style={{ display: 'flex', justifyContent: 'center', padding: '80px 0' }}><Loader className="spinner" /></div>;
@@ -241,6 +537,19 @@ export default function Community() {
     );
   };
 
+  if (chatGroup) {
+    return (
+      <div>
+        <div style={{ marginBottom: '16px' }}>
+          <h1 style={{ fontFamily: 'var(--font-heading)', fontWeight: 800, fontSize: '1.8rem', color: 'var(--primary)' }}>
+            💬 {chatGroup.nome}
+          </h1>
+        </div>
+        {renderChat()}
+      </div>
+    );
+  }
+
   return (
     <div>
       <div style={{ marginBottom: '24px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
@@ -305,9 +614,11 @@ export default function Community() {
                     display: 'flex', justifyContent: 'space-between', alignItems: 'center',
                     padding: '10px 0', borderBottom: i < grupos.length - 1 ? '1px solid var(--border)' : 'none',
                     cursor: 'pointer'
-                  }}>
-                    <span style={{ fontSize: '0.9rem' }}>{g.nome || g._id}</span>
-                    <span className="badge badge-primary">{g.total || g.count || 0} posts</span>
+                  }} onClick={() => abrirChat(g)}>
+                    <span style={{ fontSize: '0.9rem' }}>{g.nome}</span>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <span className="badge badge-primary">{g.totalMembros || 0} membros</span>
+                    </div>
                   </div>
                 ))
               )}
@@ -346,7 +657,7 @@ export default function Community() {
               </p>
             ) : (
               grupos.map((g, i) => (
-                <div key={g._id || i} className="forum-post">
+                <div key={g._id || i} className="forum-post" style={{ display: 'flex', flexDirection: 'column' }}>
                   <div style={{ fontSize: '2rem', marginBottom: '8px' }}>👥</div>
                   <h3 style={{ fontWeight: 600, marginBottom: '4px' }}>{g.nome}</h3>
                   {g.descricao && (
@@ -357,9 +668,16 @@ export default function Community() {
                   <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '12px' }}>
                     {g.totalPosts || 0} publicações • {g.totalMembros || 0} membros
                   </p>
-                  <button className="btn btn-sm btn-ghost" onClick={() => { setTab('feed'); setSearch(g.nome); }}>
-                    Ver publicações
-                  </button>
+                  <div style={{ display: 'flex', gap: '8px', marginTop: 'auto' }}>
+                    <button className="btn btn-sm btn-primary" onClick={() => abrirChat(g)}>
+                      <MessageCircle size={14} /> Chat
+                    </button>
+                    {!ehMembro(g) && (
+                      <button className="btn btn-sm btn-outline" onClick={() => handleEntrarGrupo(g)}>
+                        <LogIn size={14} /> {g.tipo === 'privado' ? 'Solicitar' : 'Entrar'}
+                      </button>
+                    )}
+                  </div>
                 </div>
               ))
             )}
