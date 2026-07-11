@@ -109,6 +109,46 @@ exports.deletarSessao = async (req, res, next) => {
 };
 
 async function gerarRespostaIA(mensagem, user) {
+  const apiKey = process.env.GEMINI_API_KEY;
+  if (apiKey) {
+    try {
+      const prompt = `És um assistente agrícola especializado em Angola. 
+Responde à pergunta do utilizador de forma clara e útil, em português de Angola.
+Contexto: O utilizador usa o Prognos Agri, uma plataforma agrícola.
+Mantém a resposta curta (máx 200 palavras) e prática.
+
+Pergunta: ${mensagem}`;
+
+      const response = await axios.post(
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`,
+        {
+          contents: [{ parts: [{ text: prompt }] }],
+          generationConfig: { temperature: 0.7, maxOutputTokens: 400 }
+        },
+        { timeout: 15000 }
+      );
+
+      const texto = response.data?.candidates?.[0]?.content?.parts?.[0]?.text;
+      if (texto) {
+        return {
+          texto,
+          contexto: { tipo: 'ia' },
+          sugestoes: [
+            'Como detectar pragas?',
+            'Previsão do tempo',
+            'Preços de produtos agrícolas',
+            'Dicas de plantio'
+          ]
+        };
+      }
+    } catch (err) {
+      console.error('Erro Gemini API:', err.message);
+    }
+  }
+  return gerarRespostaLocal(mensagem);
+}
+
+function gerarRespostaLocal(mensagem) {
   const mensagemLower = mensagem.toLowerCase();
   let texto = '';
   let contexto = { tipo: 'geral' };

@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { Users, MessageCircle, Heart, Share2, Eye, Plus, Search, Tag, X, Send, Loader, AlertCircle } from 'lucide-react';
 import PrognosCard from '../components/PrognosCard';
 import { usePrognos } from '../contexts/PrognosContext';
-import { listarPosts, criarPost, likePost, comentar, listarGrupos, getTagsPopulares } from '../../services/communityService';
+import { criarPost, likePost, comentar, listarGrupos, criarGrupo, entrarGrupo, getTagsPopulares } from '../../services/communityService';
 
 const tipoOptions = ['post', 'pergunta', 'artigo', 'dica'];
 
@@ -22,6 +22,8 @@ export default function Community() {
     titulo: '', conteudo: '', tipo: 'post', grupo: '', tags: ''
   });
   const [submitting, setSubmitting] = useState(false);
+  const [showCriarGrupo, setShowCriarGrupo] = useState(false);
+  const [newGroup, setNewGroup] = useState({ nome: '', descricao: '', categoria: 'geral' });
 
   const carregarDados = useCallback(async () => {
     try {
@@ -95,6 +97,21 @@ export default function Community() {
       console.error('Erro ao criar post:', err);
     } finally {
       setSubmitting(false);
+    }
+  };
+
+  const handleCriarGrupo = async (e) => {
+    e.preventDefault();
+    if (!newGroup.nome.trim()) return;
+    try {
+      const res = await criarGrupo(newGroup);
+      if (res.success) {
+        setGrupos(prev => [...prev, res.data]);
+        setShowCriarGrupo(false);
+        setNewGroup({ nome: '', descricao: '', categoria: 'geral' });
+      }
+    } catch (err) {
+      console.error('Erro ao criar grupo:', err);
     }
   };
 
@@ -313,21 +330,40 @@ export default function Community() {
       )}
 
       {tab === 'grupos' && (
-        <div className="grid-3">
-          {grupos.length === 0 ? (
-            <p style={{ color: 'var(--text-muted)', textAlign: 'center', padding: '40px' }}>
-              Nenhum grupo encontrado.
+        <div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+            <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem' }}>
+              {grupos.length} grupo{grupos.length !== 1 ? 's' : ''} encontrado{grupos.length !== 1 ? 's' : ''}
             </p>
-          ) : (
-            grupos.map((g, i) => (
-              <div key={i} className="forum-post" style={{ cursor: 'pointer' }}
-                onClick={() => { setTab('feed'); setSearch(g.nome || g._id); }}>
-                <div style={{ fontSize: '2rem', marginBottom: '8px' }}>👥</div>
-                <h3 style={{ fontWeight: 600, marginBottom: '4px' }}>{g.nome || g._id}</h3>
-                <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>{g.total || g.count || 0} publicações</p>
-              </div>
-            ))
-          )}
+            <button className="btn btn-primary" onClick={() => setShowCriarGrupo(true)}>
+              <Plus size={16} /> Criar Grupo
+            </button>
+          </div>
+          <div className="grid-3">
+            {grupos.length === 0 ? (
+              <p style={{ color: 'var(--text-muted)', textAlign: 'center', padding: '40px', gridColumn: '1 / -1' }}>
+                Nenhum grupo encontrado. Cria o primeiro grupo!
+              </p>
+            ) : (
+              grupos.map((g, i) => (
+                <div key={g._id || i} className="forum-post">
+                  <div style={{ fontSize: '2rem', marginBottom: '8px' }}>👥</div>
+                  <h3 style={{ fontWeight: 600, marginBottom: '4px' }}>{g.nome}</h3>
+                  {g.descricao && (
+                    <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '8px' }}>
+                      {g.descricao}
+                    </p>
+                  )}
+                  <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '12px' }}>
+                    {g.totalPosts || 0} publicações • {g.totalMembros || 0} membros
+                  </p>
+                  <button className="btn btn-sm btn-ghost" onClick={() => { setTab('feed'); setSearch(g.nome); }}>
+                    Ver publicações
+                  </button>
+                </div>
+              ))
+            )}
+          </div>
         </div>
       )}
 
@@ -378,6 +414,45 @@ export default function Community() {
             </div>
           </form>
         </PrognosCard>
+      )}
+
+      {showCriarGrupo && (
+        <div className="modal-overlay" onClick={() => setShowCriarGrupo(false)}>
+          <div className="modal-content" onClick={e => e.stopPropagation()}>
+            <div className="modal-header">
+              <h2 className="modal-title">👥 Criar Grupo</h2>
+              <button className="modal-close" onClick={() => setShowCriarGrupo(false)}>✕</button>
+            </div>
+            <form onSubmit={handleCriarGrupo} style={{ display: 'grid', gap: '16px' }}>
+              <div className="input-group">
+                <label className="input-label">Nome do Grupo</label>
+                <input type="text" className="input" placeholder="Ex: Agricultores do Bié" required
+                  value={newGroup.nome} onChange={e => setNewGroup(prev => ({ ...prev, nome: e.target.value }))} />
+              </div>
+              <div className="input-group">
+                <label className="input-label">Descrição</label>
+                <textarea className="input" placeholder="Descreva o propósito do grupo..." rows={3}
+                  value={newGroup.descricao} onChange={e => setNewGroup(prev => ({ ...prev, descricao: e.target.value }))} />
+              </div>
+              <div className="input-group">
+                <label className="input-label">Categoria</label>
+                <select className="input" value={newGroup.categoria}
+                  onChange={e => setNewGroup(prev => ({ ...prev, categoria: e.target.value }))}>
+                  <option value="geral">Geral</option>
+                  <option value="culturas">Culturas</option>
+                  <option value="pecuaria">Pecuária</option>
+                  <option value="pragas">Pragas e Doenças</option>
+                  <option value="mercado">Mercado</option>
+                  <option value="tecnologia">Tecnologia</option>
+                </select>
+              </div>
+              <div style={{ display: 'flex', gap: '12px' }}>
+                <button type="submit" className="btn btn-primary" style={{ flex: 1 }}>Criar Grupo</button>
+                <button type="button" className="btn btn-ghost" onClick={() => setShowCriarGrupo(false)}>Cancelar</button>
+              </div>
+            </form>
+          </div>
+        </div>
       )}
     </div>
   );

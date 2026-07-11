@@ -20,6 +20,7 @@ const marketRoutes = require('./routes/market');
 const communityRoutes = require('./routes/community');
 const rastreabilidadeRoutes = require('./routes/rastreabilidade');
 const irrigacaoRoutes = require('./routes/irrigacao');
+const weatherRoutes = require('./routes/weather');
 
 const mercadoYangueProxy = require('./routes/mercadoYangueProxy');
 const errorHandler = require("./middleware/errorHandler");
@@ -75,6 +76,18 @@ const limiter = rateLimit({
     message: "Muitas requisições deste IP, tente novamente mais tarde."
   }
 });
+
+app.get("/health", (req, res) => {
+  res.status(200).json({
+    success: true,
+    message: "🌾 Prognos Agri 2.0 Backend operacional",
+    timestamp: new Date().toISOString(),
+    version: "2.0.0",
+    platform: "prognos-agri",
+    author: "Venâncio Martins"
+  });
+});
+
 app.use("/api", limiter);
 
 app.use(express.json({ limit: "10mb" }));
@@ -106,18 +119,8 @@ app.use('/api/market', marketRoutes);
 app.use('/api/community', communityRoutes);
 app.use('/api/rastreabilidade', rastreabilidadeRoutes);
 app.use('/api/irrigacao', irrigacaoRoutes);
+app.use('/api/weather', weatherRoutes);
 app.use('/api/mercado-yangue', mercadoYangueProxy);
-
-app.get("/api/health", (req, res) => {
-  res.status(200).json({
-    success: true,
-    message: "🌾 Prognos Agri 2.0 Backend operacional",
-    timestamp: new Date().toISOString(),
-    version: "2.0.0",
-    platform: "prognos-agri",
-    author: "Venâncio Martins"
-  });
-});
 
 app.get("/", (req, res) => {
   res.send(`
@@ -198,7 +201,7 @@ app.get("/", (req, res) => {
           <div class="card">
             <h2 style="font-family: 'Montserrat', sans-serif; margin-bottom: 15px;">📋 Endpoints</h2>
             <ul>
-              <li>• <a href="/api/health">/api/health</a> — Status</li>
+              <li>• <a href="/health">/health</a> — Status</li>
               <li>• /api/auth — Autenticação</li>
               <li>• /api/dashboard — Dashboard</li>
               <li>• /api/predict — Previsões Climáticas</li>

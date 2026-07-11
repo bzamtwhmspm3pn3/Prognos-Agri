@@ -30,6 +30,16 @@ export const listarGrupos = async () => {
   return response.data;
 };
 
+export const criarGrupo = async (data) => {
+  const response = await api.post('/community/grupos', data);
+  return response.data;
+};
+
+export const entrarGrupo = async (id) => {
+  const response = await api.post(`/community/grupos/${id}/entrar`);
+  return response.data;
+};
+
 export const getTagsPopulares = async () => {
   const response = await api.get('/community/tags-populares');
   return response.data;

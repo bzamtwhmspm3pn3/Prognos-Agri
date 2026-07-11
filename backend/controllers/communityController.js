@@ -1,4 +1,5 @@
 const CommunityPost = require('../models/CommunityPost');
+const Group = require('../models/Group');
 
 const listarPosts = async (req, res, next) => {
   try {
@@ -108,15 +109,74 @@ const likePost = async (req, res, next) => {
 
 const listarGrupos = async (req, res, next) => {
   try {
-    const grupos = await CommunityPost.distinct('grupo', { status: 'ativo' });
+    const grupos = await Group.find({ ativo: true })
+      .populate('criadorId', 'username')
+      .sort({ createdAt: -1 });
+
     const gruposComInfo = await Promise.all(
-      grupos.map(async (grupo) => {
-        const count = await CommunityPost.countDocuments({ grupo, status: 'ativo' });
-        return { nome: grupo, totalPosts: count };
+      grupos.map(async (g) => {
+        const count = await CommunityPost.countDocuments({ grupo: g.nome, status: 'ativo' });
+        return {
+          _id: g._id,
+          nome: g.nome,
+          descricao: g.descricao,
+          foto: g.foto,
+          categoria: g.categoria,
+          criador: g.criadorId?.username || 'Desconhecido',
+          totalMembros: g.membros.length,
+          totalPosts: count,
+          criadoEm: g.createdAt
+        };
       })
     );
 
-    res.json({ success: true, data: gruposComInfo.sort((a, b) => b.totalPosts - a.totalPosts) });
+    res.json({ success: true, data: gruposComInfo });
+  } catch (error) {
+    next(error);
+  }
+};
+
+const criarGrupo = async (req, res, next) => {
+  try {
+    const { nome, descricao, categoria } = req.body;
+    if (!nome) {
+      return res.status(400).json({ success: false, message: 'Nome do grupo é obrigatório' });
+    }
+
+    const existente = await Group.findOne({ nome, ativo: true });
+    if (existente) {
+      return res.status(409).json({ success: false, message: 'Já existe um grupo com este nome' });
+    }
+
+    const grupo = await Group.create({
+      nome: nome.trim(),
+      descricao: descricao || '',
+      categoria: categoria || 'geral',
+      criadorId: req.userId,
+      membros: [{ usuarioId: req.userId, cargo: 'admin' }]
+    });
+
+    res.status(201).json({ success: true, data: grupo });
+  } catch (error) {
+    next(error);
+  }
+};
+
+const entrarGrupo = async (req, res, next) => {
+  try {
+    const grupo = await Group.findById(req.params.id);
+    if (!grupo) {
+      return res.status(404).json({ success: false, message: 'Grupo não encontrado' });
+    }
+
+    if (grupo.membros.some(m => m.usuarioId.toString() === req.userId)) {
+      return res.json({ success: true, message: 'Já és membro deste grupo' });
+    }
+
+    grupo.membros.push({ usuarioId: req.userId, cargo: 'membro' });
+    await grupo.save();
+
+    res.json({ success: true, data: grupo });
   } catch (error) {
     next(error);
   }
@@ -145,5 +205,7 @@ module.exports = {
   comentar,
   likePost,
   listarGrupos,
+  criarGrupo,
+  entrarGrupo,
   getTagsPopulares
 };

@@ -5,7 +5,7 @@ import {
   Camera, MapPin, Calendar, Clock, Thermometer,
   Droplets, Wind, Sun, Volume2, Navigation,
   Compass, Cloud, CloudRain, Eye, RefreshCw,
-  Share2  // ← Share2 adicionado aqui
+  Share2, ChevronDown
 } from 'lucide-react';
 import vozService from '../../services/vozService';
 
@@ -18,6 +18,24 @@ const cores = {
   azul: '#3B82F6',
   laranja: '#F97316',
   roxo: '#8B5CF6'
+};
+
+const provinciasAngola = [
+  'Bengo', 'Benguela', 'Bié', 'Cabinda', 'Cuando Cubango', 'Cuanza Norte',
+  'Cuanza Sul', 'Cunene', 'Huambo', 'Huíla', 'Luanda', 'Lunda Norte',
+  'Lunda Sul', 'Malanje', 'Moxico', 'Namibe', 'Uíge', 'Zaire'
+];
+
+const coordenadasProvincias = {
+  'Bengo': { lat: -8.5, lon: 14.0 }, 'Benguela': { lat: -12.5, lon: 13.5 },
+  'Bié': { lat: -12.5, lon: 17.5 }, 'Cabinda': { lat: -5.5, lon: 12.3 },
+  'Cuando Cubango': { lat: -16.0, lon: 20.0 }, 'Cuanza Norte': { lat: -9.0, lon: 15.0 },
+  'Cuanza Sul': { lat: -10.5, lon: 14.5 }, 'Cunene': { lat: -16.5, lon: 16.0 },
+  'Huambo': { lat: -12.8, lon: 15.7 }, 'Huíla': { lat: -15.0, lon: 14.5 },
+  'Luanda': { lat: -8.8, lon: 13.2 }, 'Lunda Norte': { lat: -8.0, lon: 19.0 },
+  'Lunda Sul': { lat: -10.0, lon: 20.5 }, 'Malanje': { lat: -9.5, lon: 16.5 },
+  'Moxico': { lat: -12.0, lon: 21.0 }, 'Namibe': { lat: -15.0, lon: 12.5 },
+  'Uíge': { lat: -7.5, lon: 15.0 }, 'Zaire': { lat: -6.5, lon: 14.0 }
 };
 
 export default function MonitoramentoCampo({ onNovaDeteccao, onAtualizarDashboard }) {
@@ -34,6 +52,8 @@ export default function MonitoramentoCampo({ onNovaDeteccao, onAtualizarDashboar
   const [fotoAtual, setFotoAtual] = useState(null);
   const [modoCamera, setModoCamera] = useState(false);
   const [stream, setStream] = useState(null);
+  const [provinciaManual, setProvinciaManual] = useState('');
+  const [mostrarSelector, setMostrarSelector] = useState(false);
   const videoRef = React.useRef(null);
   const canvasRef = React.useRef(null);
 
@@ -360,6 +380,26 @@ export default function MonitoramentoCampo({ onNovaDeteccao, onAtualizarDashboar
     return `${Math.abs(lat).toFixed(6)}° ${latDir}, ${Math.abs(lon).toFixed(6)}° ${lonDir}`;
   };
 
+  const definirLocalizacaoManual = (provincia) => {
+    if (!provincia) return;
+    const coords = coordenadasProvincias[provincia];
+    if (!coords) return;
+    const localizacao = {
+      latitude: coords.lat,
+      longitude: coords.lon,
+      precisao: 0,
+      cidade: provincia,
+      regiao: provincia,
+      pais: 'Angola',
+      endereco: `${provincia}, Angola`,
+      timestamp: new Date().toISOString()
+    };
+    setDados(prev => ({ ...prev, localizacao, carregandoGeo: false, erroGeo: null }));
+    obterClima(coords.lat, coords.lon);
+    setProvinciaManual(provincia);
+    setMostrarSelector(false);
+  };
+
   if (dados.carregandoGeo) {
     return (
       <div style={carregandoStyle}>
@@ -458,6 +498,32 @@ export default function MonitoramentoCampo({ onNovaDeteccao, onAtualizarDashboar
               <button onClick={compartilharLocalizacao} style={compartilharButtonStyle}>
                 <Share2 size={14} /> Compartilhar Localização
               </button>
+              
+              {!mostrarSelector ? (
+                <button onClick={() => setMostrarSelector(true)}
+                  style={{ ...compartilharButtonStyle, marginTop: '8px', background: 'transparent', border: '1px dashed #82B74D', color: cores.verdePimenta }}>
+                  <MapPin size={14} /> Localização incorreta? Definir manualmente
+                </button>
+              ) : (
+                <div style={{ marginTop: '12px' }}>
+                  <select value={provinciaManual}
+                    onChange={(e) => definirLocalizacaoManual(e.target.value)}
+                    style={{
+                      width: '100%', padding: '8px 12px', borderRadius: '8px',
+                      border: '1px solid #82B74D', background: '#1A4D2E',
+                      color: 'white', fontSize: '0.85rem', cursor: 'pointer'
+                    }}>
+                    <option value="">Seleccione a província</option>
+                    {provinciasAngola.map(p => (
+                      <option key={p} value={p}>{p}</option>
+                    ))}
+                  </select>
+                  <button onClick={() => setMostrarSelector(false)}
+                    style={{ fontSize: '0.75rem', color: cores.vermelho, background: 'none', border: 'none', cursor: 'pointer', marginTop: '4px' }}>
+                    Cancelar
+                  </button>
+                </div>
+              )}
             </div>
           ) : (
             <p style={{ color: cores.vermelho }}>{dados.erroGeo || 'Localização indisponível'}</p>

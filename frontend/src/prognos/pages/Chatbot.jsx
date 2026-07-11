@@ -1,18 +1,36 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { MessageCircle, Send, Trash2, Bot, User, Sparkles } from 'lucide-react';
+import { MessageCircle, Send, Trash2, Bot, User, Sparkles, Loader } from 'lucide-react';
 import PrognosCard from '../components/PrognosCard';
+import { enviarMensagem, getHistorico, deletarSessao } from '../../services/chatbotService';
+import { usePrognos } from '../contexts/PrognosContext';
 
 export default function Chatbot() {
+  const { user } = usePrognos();
   const [mensagens, setMensagens] = useState([
     { papel: 'assistant', conteudo: '👋 Olá! Sou o assistente virtual do Prognos Agri. Como posso ajudar hoje?' }
   ]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
+  const [sessoes, setSessoes] = useState([]);
+  const [sessaoAtiva, setSessaoAtiva] = useState(null);
   const messagesEndRef = useRef(null);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [mensagens]);
+
+  useEffect(() => {
+    carregarSessoes();
+  }, []);
+
+  const carregarSessoes = async () => {
+    try {
+      const res = await getHistorico();
+      if (res.success) setSessoes(res.data);
+    } catch (err) {
+      console.error('Erro ao carregar histórico:', err);
+    }
+  };
 
   const sugestoes = [
     'Como detectar pragas?',
@@ -21,35 +39,50 @@ export default function Chatbot() {
     'Dicas de plantio para Angola'
   ];
 
-  const gerarResposta = (msg) => {
-    const lower = msg.toLowerCase();
-    if (lower.includes('praga') || lower.includes('inseto')) {
-      return 'Compreendo a sua preocupação com pragas! 🐛\n\nRecomendações:\n1. Utilize o sistema de detecção do Prognos Agri\n2. Faça vistorias regulares nas culturas\n3. Para lagarta-do-cartucho: use Bacillus thuringiensis\n4. Mantenha o registo de ocorrências\n\nDeseja mais informações sobre alguma praga específica?';
-    }
-    if (lower.includes('clima') || lower.includes('tempo') || lower.includes('chuva') || lower.includes('temperatura')) {
-      return '📊 Sobre as condições climáticas:\n\n• A temperatura ideal para culturas agrícolas em Angola é entre 20°C e 35°C\n• Época chuvosa: Outubro a Abril\n• Consulte o módulo de Previsão Climática para dados detalhados\n• Configure alertas para condições extremas\n\nQuer que verifique a previsão para a sua região?';
-    }
-    if (lower.includes('preço') || lower.includes('preco') || lower.includes('vender') || lower.includes('comprar') || lower.includes('mercado') || lower.includes('milho')) {
-      return '📈 Mercado Agrícola em Tempo Real:\n\nPreços médios actuais:\n• 🌽 Milho: 250 Kz/kg\n• 🫘 Feijão: 500 Kz/kg\n• 🌱 Mandioca: 150 Kz/kg\n• 🍅 Tomate: 350 Kz/kg\n\nAceda ao módulo Mercado para publicar ofertas ou encontrar compradores na sua região!';
-    }
-    if (lower.includes('plant') || lower.includes('cultivar') || lower.includes('semente') || lower.includes('colheita')) {
-      return '🌱 Recomendações de Plantio:\n\nCulturas recomendadas para esta época:\n• Milho: Plantar no início das chuvas\n• Feijão: 2-3 semanas após o milho\n• Mandioca: Pode plantar todo o ano com irrigação\n\nDicas:\n• Analise o pH do solo (ideal: 5.5-7.0)\n• Use adubação orgânica\n• Planeie rotação de culturas\n\nUse o módulo de Previsão para recomendações personalizadas!';
-    }
-    return 'Olá! Sou o assistente do Prognos Agri. 🤖\n\nPosso ajudar com:\n🔍 Detecção de pragas\n🌤️ Previsão climática\n📈 Mercado agrícola\n🌱 Recomendações de plantio\n🔗 Rastreabilidade\n\nSobre o que gostaria de saber?';
-  };
-
-  const enviarMensagem = (texto) => {
+  const enviarMensagemApi = async (texto) => {
     if (!texto.trim()) return;
 
-    setMensagens(prev => [...prev, { papel: 'user', conteudo: texto }]);
+    const userMsg = { papel: 'user', conteudo: texto };
+    setMensagens(prev => [...prev, userMsg]);
     setInput('');
     setLoading(true);
 
-    setTimeout(() => {
-      const resposta = gerarResposta(texto);
-      setMensagens(prev => [...prev, { papel: 'assistant', conteudo: resposta }]);
+    try {
+      const res = await enviarMensagem(texto, sessaoAtiva);
+      if (res.success) {
+        setMensagens(prev => [...prev, { papel: 'assistant', conteudo: res.data.mensagem }]);
+        if (res.data.sessaoId && res.data.sessaoId !== sessaoAtiva) {
+          setSessaoAtiva(res.data.sessaoId);
+          carregarSessoes();
+        }
+      }
+    } catch (err) {
+      console.error('Erro ao enviar mensagem:', err);
+      setMensagens(prev => [...prev, {
+        papel: 'assistant',
+        conteudo: '❌ Não foi possível obter resposta. Verifica a tua ligação.'
+      }]);
+    } finally {
       setLoading(false);
-    }, 800);
+    }
+  };
+
+  const handleDeletarSessao = async (id) => {
+    try {
+      await deletarSessao(id);
+      setSessoes(prev => prev.filter(s => s._id !== id));
+      if (sessaoAtiva === id) {
+        setSessaoAtiva(null);
+        setMensagens([{ papel: 'assistant', conteudo: '👋 Olá! Como posso ajudar hoje?' }]);
+      }
+    } catch (err) {
+      console.error('Erro ao deletar sessão:', err);
+    }
+  };
+
+  const handleNovaConversa = () => {
+    setSessaoAtiva(null);
+    setMensagens([{ papel: 'assistant', conteudo: '👋 Olá! Como posso ajudar hoje?' }]);
   };
 
   return (
@@ -101,11 +134,11 @@ export default function Chatbot() {
                 placeholder="Digite a sua mensagem..."
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
-                onKeyPress={(e) => e.key === 'Enter' && enviarMensagem(input)}
+                onKeyPress={(e) => e.key === 'Enter' && enviarMensagemApi(input)}
               />
               <button
                 className="btn btn-primary"
-                onClick={() => enviarMensagem(input)}
+                onClick={() => enviarMensagemApi(input)}
                 disabled={!input.trim() || loading}
               >
                 <Send size={18} />
@@ -122,7 +155,7 @@ export default function Chatbot() {
                   key={i}
                   className="btn btn-ghost"
                   style={{ justifyContent: 'flex-start', textAlign: 'left', width: '100%' }}
-                  onClick={() => enviarMensagem(sug)}
+                  onClick={() => enviarMensagemApi(sug)}
                 >
                   <MessageCircle size={16} />
                   {sug}
@@ -132,10 +165,35 @@ export default function Chatbot() {
           </PrognosCard>
 
           <PrognosCard title="Histórico de Conversas" icon={<MessageCircle size={18} />} style={{ marginTop: '16px' }}>
-            <div className="empty-state" style={{ padding: '20px' }}>
-              <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>
-                As suas conversas serão guardadas automaticamente.
-              </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              <button className="btn btn-sm btn-ghost" onClick={handleNovaConversa}
+                style={{ justifyContent: 'center', width: '100%' }}>
+                + Nova Conversa
+              </button>
+              {sessoes.length === 0 ? (
+                <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)', textAlign: 'center', padding: '12px' }}>
+                  Nenhuma conversa anterior
+                </div>
+              ) : (
+                sessoes.map((s, i) => (
+                  <div key={s._id} style={{
+                    display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                    padding: '8px 0', borderBottom: '1px solid var(--border)',
+                    cursor: 'pointer', fontSize: '0.85rem'
+                  }} onClick={() => {
+                    setSessaoAtiva(s._id);
+                    setMensagens(prev => [...prev, { papel: 'assistant', conteudo: `A carregar conversa: ${s.titulo}...` }]);
+                  }}>
+                    <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>
+                      {s.titulo}
+                    </span>
+                    <button className="btn btn-ghost btn-sm" onClick={(e) => { e.stopPropagation(); handleDeletarSessao(s._id); }}
+                      style={{ padding: '4px', color: '#ef4444' }}>
+                      <Trash2 size={12} />
+                    </button>
+                  </div>
+                ))
+              )}
             </div>
           </PrognosCard>
         </div>

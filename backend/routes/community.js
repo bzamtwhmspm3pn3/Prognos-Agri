@@ -9,6 +9,8 @@ router.get('/posts/:id', protect, communityController.getPost);
 router.post('/posts/:id/comentar', protect, communityController.comentar);
 router.post('/posts/:id/like', protect, communityController.likePost);
 router.get('/grupos', protect, communityController.listarGrupos);
+router.post('/grupos', protect, communityController.criarGrupo);
+router.post('/grupos/:id/entrar', protect, communityController.entrarGrupo);
 router.get('/tags-populares', protect, communityController.getTagsPopulares);
 
 module.exports = router;

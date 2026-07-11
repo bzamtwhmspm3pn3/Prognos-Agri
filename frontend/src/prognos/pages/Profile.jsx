@@ -1,8 +1,8 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import { User, Mail, Phone, MapPin, Globe, Shield, Camera, Save, Loader, CheckCircle, AlertCircle } from 'lucide-react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { User, Mail, Phone, MapPin, Globe, Shield, Camera, Save, Loader, CheckCircle, AlertCircle, Upload } from 'lucide-react';
 import PrognosCard from '../components/PrognosCard';
 import { usePrognos } from '../contexts/PrognosContext';
-import { getUserProfile, updateUserProfile } from '../../services/auth';
+import { getUserProfile, updateUserProfile, uploadProfileImage } from '../../services/auth';
 
 const provinciasAngola = [
   'Bengo', 'Benguela', 'Bié', 'Cabinda', 'Cuando Cubango', 'Cuanza Norte',
@@ -16,6 +16,10 @@ export default function Profile() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState(null);
+  const [fotoFile, setFotoFile] = useState(null);
+  const [fotoPreview, setFotoPreview] = useState(null);
+  const [uploadingFoto, setUploadingFoto] = useState(false);
+  const fileInputRef = useRef(null);
   const [form, setForm] = useState({
     nome: '', email: '', telefone: '', tipo: 'individual',
     nomeOrganizacao: '', identificacao: '', tipoIdentificacao: 'BI',
@@ -109,6 +113,36 @@ export default function Profile() {
     }
   };
 
+  const handleFotoChange = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    setFotoFile(file);
+    const reader = new FileReader();
+    reader.onloadend = () => setFotoPreview(reader.result);
+    reader.readAsDataURL(file);
+  };
+
+  const handleUploadFoto = async () => {
+    if (!fotoFile || !user?.id) return;
+    try {
+      setUploadingFoto(true);
+      const formData = new FormData();
+      formData.append('imagemPerfil', fotoFile);
+      const res = await uploadProfileImage(user.id, formData);
+      if (res.success) {
+        setProfile(prev => ({ ...prev, imagemPerfil: { url: res.imageUrl } }));
+        setMessage({ type: 'success', text: 'Foto de perfil actualizada!' });
+        setFotoFile(null);
+      }
+    } catch (err) {
+      console.error('Erro upload foto:', err);
+      setMessage({ type: 'error', text: 'Erro ao enviar foto' });
+    } finally {
+      setUploadingFoto(false);
+      setTimeout(() => setMessage(null), 4000);
+    }
+  };
+
   if (loading) {
     return <div style={{ display: 'flex', justifyContent: 'center', padding: '80px 0' }}><Loader className="spinner" /></div>;
   }
@@ -149,20 +183,47 @@ export default function Profile() {
         <PrognosCard title="Informações Pessoais" icon={<User size={18} />}>
           <form onSubmit={handleSubmit} style={{ display: 'grid', gap: '16px' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginBottom: '8px' }}>
-              <div style={{
-                width: '64px', height: '64px', borderRadius: '50%',
-                background: 'linear-gradient(135deg, var(--primary), var(--secondary))',
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                color: 'white', fontSize: '1.5rem', fontWeight: 'bold',
-                position: 'relative', flexShrink: 0
-              }}>
-                {form.nome?.charAt(0).toUpperCase() || 'U'}
+              <div onClick={() => fileInputRef.current?.click()}
+                style={{
+                  width: '80px', height: '80px', borderRadius: '50%',
+                  background: profile?.imagemPerfil?.url ? 'none' : 'linear-gradient(135deg, var(--primary), var(--secondary))',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  color: 'white', fontSize: '2rem', fontWeight: 'bold',
+                  position: 'relative', flexShrink: 0, cursor: 'pointer',
+                  overflow: 'hidden', border: '2px dashed var(--border)',
+                  transition: 'opacity 0.2s'
+                }}
+                title="Clique para mudar a foto">
+                {fotoPreview ? (
+                  <img src={fotoPreview} alt="Preview" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                ) : profile?.imagemPerfil?.url ? (
+                  <img src={profile.imagemPerfil.url} alt="Foto" style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                    onError={(e) => { e.target.style.display = 'none'; }} />
+                ) : (
+                  form.nome?.charAt(0).toUpperCase() || 'U'
+                )}
+                <div style={{
+                  position: 'absolute', bottom: 0, left: 0, right: 0,
+                  background: 'rgba(0,0,0,0.5)', padding: '4px',
+                  textAlign: 'center', fontSize: '0.65rem', fontWeight: 600
+                }}>
+                  <Camera size={12} />
+                </div>
               </div>
+              <input type="file" ref={fileInputRef}
+                accept="image/png,image/jpeg,image/webp"
+                onChange={handleFotoChange} style={{ display: 'none' }} />
               <div>
                 <h3 style={{ fontSize: '1.1rem', fontWeight: 600 }}>{form.nome || 'Utilizador'}</h3>
                 <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>
                   {user?.role === 'admin' ? 'Administrador' : 'Agricultor'}
                 </p>
+                {fotoPreview && (
+                  <button className="btn btn-sm btn-primary" onClick={handleUploadFoto}
+                    disabled={uploadingFoto} style={{ marginTop: '8px', fontSize: '0.75rem' }}>
+                    {uploadingFoto ? 'A enviar...' : 'Salvar Foto'}
+                  </button>
+                )}
               </div>
             </div>
 
