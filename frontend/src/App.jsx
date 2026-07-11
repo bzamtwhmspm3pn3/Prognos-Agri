@@ -21,6 +21,7 @@ import MonitoramentoCampoPage from './prognos/pages/MonitoramentoCampoPage';
 import RelatoriosColheitaPage from './prognos/pages/RelatoriosColheitaPage';
 import HistoricoOcorrenciasPage from './prognos/pages/HistoricoOcorrenciasPage';
 import IrrigacaoPage from './prognos/pages/IrrigacaoPage';
+import GestaoPlantioPage from './prognos/pages/GestaoPlantioPage';
 import './theme.css';
 
 function PrivateRoute({ children }) {
@@ -62,6 +63,7 @@ function AppLayout() {
             <Route path="/relatorios" element={<RelatoriosColheitaPage />} />
             <Route path="/historico" element={<HistoricoOcorrenciasPage />} />
             <Route path="/irrigacao" element={<IrrigacaoPage />} />
+            <Route path="/plantio" element={<GestaoPlantioPage />} />
           </Routes>
         </main>
       </div>

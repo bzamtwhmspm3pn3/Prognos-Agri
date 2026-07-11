@@ -21,6 +21,7 @@ const communityRoutes = require('./routes/community');
 const rastreabilidadeRoutes = require('./routes/rastreabilidade');
 const irrigacaoRoutes = require('./routes/irrigacao');
 const weatherRoutes = require('./routes/weather');
+const plantioRoutes = require('./routes/plantio');
 
 const mercadoYangueProxy = require('./routes/mercadoYangueProxy');
 const errorHandler = require("./middleware/errorHandler");
@@ -132,6 +133,7 @@ app.use('/api/community', communityRoutes);
 app.use('/api/rastreabilidade', rastreabilidadeRoutes);
 app.use('/api/irrigacao', irrigacaoRoutes);
 app.use('/api/weather', weatherRoutes);
+app.use('/api/plantio', plantioRoutes);
 app.use('/api/mercado-yangue', mercadoYangueProxy);
 
 app.get("/", (req, res) => {

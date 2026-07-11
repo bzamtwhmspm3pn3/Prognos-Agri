@@ -5,6 +5,7 @@ const multer = require('multer');
 const path = require('path');
 const { protect } = require('../middleware/auth');
 const detectionController = require('../controllers/detectionController');
+const geminiDetectController = require('../controllers/geminiDetectController');
 
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
@@ -30,6 +31,7 @@ const upload = multer({
 router.use(protect);
 
 router.post('/detect', upload.single('image'), detectionController.detectFromImage);
+router.post('/gemini-detect', upload.single('image'), geminiDetectController.detectWithGemini);
 router.get('/history', detectionController.getDetectionHistory);
 router.get('/services/status', detectionController.checkServices);
 

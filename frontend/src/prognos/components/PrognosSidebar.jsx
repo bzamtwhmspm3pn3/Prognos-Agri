@@ -2,7 +2,7 @@ import React from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import {
   LayoutDashboard, Cloud, ShoppingBag, MessageCircle, Users, QrCode,
-  Camera, User, ChevronLeft, ChevronRight, LogOut, MapPin, FileText, History, Monitor, Droplets
+  Camera, User, ChevronLeft, ChevronRight, LogOut, MapPin, FileText, History, Monitor, Droplets, Sprout
 } from 'lucide-react';
 import { usePrognos } from '../contexts/PrognosContext';
 
@@ -19,6 +19,7 @@ const menuItems = [
   { path: '/app/rastreabilidade', icon: QrCode, label: 'Rastreabilidade', color: '#10b981' },
   { path: '/app/cameras', icon: Monitor, label: 'Config. Câmaras', color: '#4A7C59' },
   { path: '/app/monitoramento', icon: MapPin, label: 'Monitoramento Campo', color: '#F97316' },
+  { path: '/app/plantio', icon: Sprout, label: 'Gestão de Plantio', color: '#4A7C59' },
   { path: '/app/historico', icon: History, label: 'Histórico Ocorrências', color: '#8b5cf6' },
   { path: '/app/relatorios', icon: FileText, label: 'Relatórios', color: '#06b6d4' },
   { section: 'Conta' },

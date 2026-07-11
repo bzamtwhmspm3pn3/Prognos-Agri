@@ -6,6 +6,7 @@ import {
 import PrognosCard from '../components/PrognosCard';
 import { detectPestFromImage, checkPythonHealth, mockDetectPestFromImage } from '../../services/pythonService';
 import { deteccaoApi } from '../../services/deteccaoApi';
+import { detectWithGemini } from '../../services/geminiDetectService';
 import vozService from '../../services/vozService';
 import { useIntegracao } from '../contexts/IntegracaoContext';
 
@@ -127,6 +128,7 @@ export default function DeteccaoPragas() {
   const [previewUrl, setPreviewUrl] = useState(null);
   const [resultado, setResultado] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [geminiLoading, setGeminiLoading] = useState(false);
   const [pythonStatus, setPythonStatus] = useState('checking');
   const [historico, setHistorico] = useState([]);
   const [saving, setSaving] = useState(false);
@@ -303,6 +305,46 @@ export default function DeteccaoPragas() {
       }
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleDetectarGemini = async () => {
+    if (!imagem) return;
+    setGeminiLoading(true);
+    try {
+      const data = await detectWithGemini(imagem);
+      const novoResultado = {
+        total_count: data.pragas?.length || 0,
+        nivelRisco: data.detection?.analysis?.level || 'BAIXO',
+        detections: data.pragas.map(p => ({
+          class: p.nome,
+          confidence: (p.probabilidade || 0) / 100,
+          class_pt: p.nome,
+          nomeCientifico: p.nomeCientifico,
+          nivel: p.nivel,
+          sintomas: p.sintomas,
+          controlo: p.controlo,
+          controloBiologico: p.controloBiologico
+        })),
+        perdaEstimada: 0,
+        recomendacoes: data.recomendacoes || [],
+        resumo: data.resumo || '',
+        cultura: data.cultura || '',
+        timestamp: new Date().toISOString(),
+        gemini: true
+      };
+      setResultado(novoResultado);
+      if (somAtivo && data.resumo) {
+        vozService.falar(data.resumo);
+      }
+      const novoHistorico = [novoResultado, ...historico].slice(0, 20);
+      setHistorico(novoHistorico);
+      localStorage.setItem('prognos_deteccoes', JSON.stringify(novoHistorico));
+    } catch (err) {
+      console.error('Erro Gemini:', err);
+      if (somAtivo) vozService.falar('Erro ao analisar com IA. Tente novamente.');
+    } finally {
+      setGeminiLoading(false);
     }
   };
 
@@ -518,7 +560,7 @@ export default function DeteccaoPragas() {
               </div>
             )}
 
-            <div style={{ display: 'flex', gap: '12px' }}>
+            <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
               {previewUrl && (
                 <button className="btn btn-ghost" onClick={() => { setImagem(null); setPreviewUrl(null); setResultado(null); }}>
                   <X size={16} /> Remover
@@ -536,7 +578,20 @@ export default function DeteccaoPragas() {
                 style={{ flex: 1 }}
               >
                 {loading ? <Loader size={18} className="spinner" /> : <Sparkles size={18} />}
-                {loading ? 'A analisar com IA...' : 'Detectar Pragas'}
+                {loading ? 'A analisar...' : 'Detectar (YOLO)'}
+              </button>
+              <button
+                className="btn btn-secondary btn-lg"
+                onClick={handleDetectarGemini}
+                disabled={!imagem || geminiLoading}
+                style={{
+                  flex: 1,
+                  background: geminiLoading ? 'var(--bg-card)' : 'linear-gradient(135deg, #8b5cf6, #6366f1)',
+                  color: 'white', border: 'none'
+                }}
+              >
+                {geminiLoading ? <Loader size={18} className="spinner" /> : <Sparkles size={18} />}
+                {geminiLoading ? 'IA a analisar...' : 'Detectar com Gemini IA'}
               </button>
             </div>
           </PrognosCard>
@@ -628,23 +683,102 @@ export default function DeteccaoPragas() {
                     </div>
                     <div style={{ flex: 1 }}>
                       <div style={{ fontWeight: 600, fontSize: '0.9rem' }}>{det.class_pt}</div>
+                      {det.nomeCientifico && (
+                        <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontStyle: 'italic' }}>
+                          {det.nomeCientifico}
+                        </div>
+                      )}
                       <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
-                        Confiança: {Math.round((det.confidence || 0) * 100)}%
+                        {det.confidence > 0 ? `Confiança: ${Math.round((det.confidence || 0) * 100)}%` : `Nível: ${det.nivel || '—'}`}
                       </div>
                     </div>
                     <div style={{
                       padding: '4px 10px', borderRadius: '50px',
-                      background: det.confidence > 0.7 ? 'rgba(239,68,68,0.1)' :
+                      background: det.nivel === 'Crítico' ? 'rgba(239,68,68,0.1)' :
+                                 det.nivel === 'Alto' ? 'rgba(239,68,68,0.08)' :
+                                 det.nivel === 'Médio' ? 'rgba(245,166,35,0.1)' :
+                                 det.nivel === 'Baixo' ? 'rgba(74,124,89,0.1)' :
+                                 det.confidence > 0.7 ? 'rgba(239,68,68,0.1)' :
                                  det.confidence > 0.4 ? 'rgba(245,166,35,0.1)' : 'rgba(74,124,89,0.1)',
-                      color: det.confidence > 0.7 ? '#ef4444' :
+                      color: det.nivel === 'Crítico' ? '#ef4444' :
+                             det.nivel === 'Alto' ? '#ef4444' :
+                             det.nivel === 'Médio' ? '#F5A623' :
+                             det.nivel === 'Baixo' ? '#4A7C59' :
+                             det.confidence > 0.7 ? '#ef4444' :
                              det.confidence > 0.4 ? '#F5A623' : '#4A7C59',
                       fontSize: '0.75rem', fontWeight: 600
                     }}>
-                      {det.confidence > 0.7 ? 'ALTA' : det.confidence > 0.4 ? 'MÉDIA' : 'BAIXA'}
+                      {det.nivel || (det.confidence > 0.7 ? 'ALTA' : det.confidence > 0.4 ? 'MÉDIA' : 'BAIXA')}
                     </div>
                   </div>
                 );
               })}
+              {resultado.gemini && resultado.cultura && (
+                <div style={{
+                  padding: '10px 12px', background: 'rgba(139,92,246,0.08)',
+                  borderRadius: 'var(--radius)', marginBottom: '16px',
+                  display: 'flex', alignItems: 'center', gap: '8px'
+                }}>
+                  <Sparkles size={16} color="#8b5cf6" />
+                  <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
+                    <strong>Cultura identificada:</strong> {resultado.cultura}
+                  </span>
+                </div>
+              )}
+
+              {resultado.gemini && resultado.resumo && (
+                <div style={{
+                  padding: '12px', background: 'var(--bg-body)',
+                  borderRadius: 'var(--radius)', marginBottom: '16px',
+                  fontSize: '0.9rem', color: 'var(--text-secondary)', lineHeight: 1.6
+                }}>
+                  {resultado.resumo}
+                </div>
+              )}
+
+              {resultado.detections.some(d => d.sintomas) && (
+                <div style={{ marginBottom: '16px' }}>
+                  <h4 style={{ fontWeight: 600, marginBottom: '8px', fontSize: '0.9rem' }}>Sintomas:</h4>
+                  {resultado.detections.filter(d => d.sintomas).map((det, i) => (
+                    <div key={i} style={{
+                      padding: '8px 12px', background: 'var(--bg-body)',
+                      borderRadius: 'var(--radius)', marginBottom: '6px', fontSize: '0.85rem'
+                    }}>
+                      <strong>{det.class_pt}:</strong> {det.sintomas}
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {resultado.detections.some(d => d.controlo) && (
+                <div style={{ marginBottom: '16px' }}>
+                  <h4 style={{ fontWeight: 600, marginBottom: '8px', fontSize: '0.9rem' }}>Controlo Químico:</h4>
+                  {resultado.detections.filter(d => d.controlo).map((det, i) => (
+                    <div key={i} style={{
+                      padding: '8px 12px', background: 'var(--bg-body)',
+                      borderRadius: 'var(--radius)', marginBottom: '6px', fontSize: '0.85rem'
+                    }}>
+                      <strong>{det.class_pt}:</strong> {det.controlo}
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {resultado.detections.some(d => d.controloBiologico) && (
+                <div style={{ marginBottom: '16px' }}>
+                  <h4 style={{ fontWeight: 600, marginBottom: '8px', fontSize: '0.9rem', color: 'var(--secondary)' }}>
+                    🌿 Controlo Biológico:
+                  </h4>
+                  {resultado.detections.filter(d => d.controloBiologico).map((det, i) => (
+                    <div key={i} style={{
+                      padding: '8px 12px', background: 'rgba(74,124,89,0.08)',
+                      borderRadius: 'var(--radius)', marginBottom: '6px', fontSize: '0.85rem'
+                    }}>
+                      <strong>{det.class_pt}:</strong> {det.controloBiologico}
+                    </div>
+                  ))}
+                </div>
+              )}
             </PrognosCard>
 
             <PrognosCard title="Recomendações" icon={<CheckCircle size={18} />} style={{ marginTop: '16px' }}>
