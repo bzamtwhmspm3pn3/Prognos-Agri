@@ -26,13 +26,22 @@ const errorHandler = require("./middleware/errorHandler");
 const app = express();
 const PORT = process.env.PORT || 5000;
 
-const allowedOrigins = (process.env.FRONTEND_URL || 'http://localhost:3000').split(',').map(s => s.trim());
+const defaultOrigins = [
+  'http://localhost:3000',
+  'https://prognosagri.vercel.app',
+  'https://prognos-agri-frontend.onrender.com',
+  'https://prognos-agri.onrender.com'
+];
+const envOrigins = (process.env.FRONTEND_URL || '').split(',').map(s => s.trim()).filter(Boolean);
+const allowedOrigins = [...new Set([...defaultOrigins, ...envOrigins])];
+
 const corsOptions = {
   origin: function (origin, callback) {
     if (!origin || allowedOrigins.some(o => origin.startsWith(o))) {
       callback(null, true);
     } else {
-      callback(new Error(`Origem ${origin} não permitida pelo CORS`));
+      console.warn(`CORS bloqueado para origem: ${origin}`);
+      callback(null, false);
     }
   },
   credentials: true,
