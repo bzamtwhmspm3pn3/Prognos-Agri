@@ -88,6 +88,18 @@ app.get("/health", (req, res) => {
   });
 });
 
+// Rota de health check mantida para compatibilidade com Render dashboard
+app.get("/api/health", (req, res) => {
+  res.status(200).json({
+    success: true,
+    message: "🌾 Prognos Agri 2.0 Backend operacional",
+    timestamp: new Date().toISOString(),
+    version: "2.0.0",
+    platform: "prognos-agri",
+    author: "Venâncio Martins"
+  });
+});
+
 app.use("/api", limiter);
 
 app.use(express.json({ limit: "10mb" }));
