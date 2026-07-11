@@ -1,9 +1,9 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { Users, MessageCircle, Heart, Eye, Plus, Search, Tag, Send, Loader, AlertCircle, ArrowLeft, LogIn, UserCheck, UserX, Shield, Image, Paperclip, Settings, Trash2, Edit3, Crown, Camera } from 'lucide-react';
+import { Users, MessageCircle, Heart, Eye, Plus, Search, Tag, Send, Loader, AlertCircle, ArrowLeft, LogIn, UserCheck, UserX, Shield, Image, Paperclip, Settings, Trash2, Edit3, Crown, Camera, Lock, Bell, CheckCircle, Clock } from 'lucide-react';
 import PrognosCard from '../components/PrognosCard';
 import { usePrognos } from '../contexts/PrognosContext';
 import { listarPosts, criarPost, likePost, comentar, listarGrupos, criarGrupo, getTagsPopulares, listarMensagens, enviarMensagem, solicitarEntrada, aprovarMembro, removerMembro, alterarCargo, atualizarGrupo, eliminarGrupo, uploadFile } from '../../services/communityService';
-import { connectSocket, joinGrupo, leaveGrupo, onNewMessage, offNewMessage, sendMessage as sendSocketMessage, disconnectSocket } from '../../services/socketService';
+import { connectSocket, joinGrupo, leaveGrupo, onNewMessage, offNewMessage, onApproved, offApproved, sendMessage as sendSocketMessage, disconnectSocket } from '../../services/socketService';
 
 export default function Community() {
   const { user } = usePrognos();
@@ -73,13 +73,21 @@ export default function Community() {
         onNewMessage((msg) => {
           setMensagens(prev => [...prev, msg]);
         });
+        onApproved((data) => {
+          alert(`✅ ${data.message}`);
+          carregarDados();
+          if (chatGroup?._id === data.grupoId) {
+            carregarMensagens(data.grupoId);
+          }
+        });
       }
     }
     return () => {
       offNewMessage();
+      offApproved();
       if (chatGroup) leaveGrupo(chatGroup._id);
     };
-  }, []);
+  }, [carregarDados, carregarMensagens, chatGroup]);
 
   useEffect(() => {
     if (chatGroup?._id) {
@@ -111,7 +119,7 @@ export default function Community() {
   const abrirChat = async (grupo) => {
     setChatGroup(grupo);
     if (!gruposDetalhe[grupo._id]?.membros) await carregarDados();
-    await carregarMensagens(grupo._id);
+    if (ehMembro(grupo)) await carregarMensagens(grupo._id);
   };
 
   const voltarGrupos = () => {
@@ -415,6 +423,39 @@ export default function Community() {
     const membros = g.membros || [];
     const isAdmin = ehAdmin(chatGroup);
     const isMember = ehMembro(chatGroup);
+    const jaPediu = pedidos.some(p => getUserId(p) === userId);
+
+    if (!isMember) {
+      return (
+        <div style={{
+          display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+          height: 'calc(100vh - 200px)', textAlign: 'center', padding: '40px'
+        }}>
+          <div style={{ fontSize: '4rem', marginBottom: '20px', opacity: 0.5 }}>🔒</div>
+          <h2 style={{ fontWeight: 700, fontSize: '1.3rem', marginBottom: '8px', color: 'var(--text-color)' }}>
+            Grupo Privado
+          </h2>
+          <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', marginBottom: '24px', maxWidth: '400px' }}>
+            {jaPediu
+              ? 'Já solicitaste entrada neste grupo. Aguarda a aprovação do administrador.'
+              : 'Este grupo é privado. Solicita entrada ao administrador para ver as conversas.'}
+          </p>
+          {jaPediu ? (
+            <div style={{
+              display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 20px',
+              background: 'rgba(245,166,35,0.1)', borderRadius: 'var(--radius)',
+              color: 'var(--accent-dark)', fontSize: '0.85rem'
+            }}>
+              <Clock size={18} /> Pedido enviado — aguarda aprovação
+            </div>
+          ) : (
+            <button className="btn btn-primary btn-lg" onClick={() => handleEntrarGrupo(chatGroup)}>
+              <LogIn size={18} /> Solicitar Entrada
+            </button>
+          )}
+        </div>
+      );
+    }
 
     return (
       <div style={{ display: 'flex', gap: '16px', height: 'calc(100vh - 200px)' }}>

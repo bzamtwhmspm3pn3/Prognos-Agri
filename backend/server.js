@@ -44,6 +44,7 @@ const io = new Server(server, {
 });
 const setupSocket = require('./socketHandler');
 setupSocket(io);
+app.set('io', io);
 const PORT = process.env.PORT || 5000;
 
 const defaultOrigins = [

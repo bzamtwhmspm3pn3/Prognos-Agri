@@ -238,7 +238,16 @@ const aprovarMembro = async (req, res, next) => {
     grupo.membros.push({ usuarioId: req.params.usuarioId, cargo: 'membro' });
     grupo.pedidosPendentes = grupo.pedidosPendentes.filter(p => p.usuarioId.toString() !== req.params.usuarioId.toString());
     await grupo.save();
-    await GroupMessage.create({ grupoId: grupo._id, usuarioId: req.userId, conteudo: `Membro aprovado`, tipo: 'sistema' });
+    await GroupMessage.create({ grupoId: grupo._id, usuarioId: req.userId, conteudo: `${req.user?.username || 'Admin'} aprovou a entrada de um membro`, tipo: 'sistema' });
+
+    if (req.app.get('io')) {
+      req.app.get('io').to(`user:${req.params.usuarioId}`).emit('approved', {
+        grupoId: grupo._id,
+        grupoNome: grupo.nome,
+        message: `Foste aprovado no grupo "${grupo.nome}"`
+      });
+    }
+
     res.json({ success: true, data: grupo });
   } catch (error) { next(error); }
 };

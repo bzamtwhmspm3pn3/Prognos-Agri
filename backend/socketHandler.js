@@ -21,6 +21,8 @@ function setupSocket(io) {
   io.on('connection', (socket) => {
     console.log(`🔌 Socket conectado: ${socket.userId}`);
 
+    socket.join(`user:${socket.userId}`);
+
     socket.on('join-grupo', async (grupoId) => {
       try {
         const grupo = await Group.findById(grupoId);

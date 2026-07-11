@@ -46,6 +46,14 @@ export const onNewMessage = (callback) => {
   if (socket) socket.on('new-message', callback);
 };
 
+export const onApproved = (callback) => {
+  if (socket) socket.on('approved', callback);
+};
+
 export const offNewMessage = (callback) => {
   if (socket) socket.off('new-message', callback);
+};
+
+export const offApproved = () => {
+  if (socket) socket.off('approved');
 };
