@@ -79,3 +79,12 @@ export const getTagsPopulares = async () => {
   const response = await api.get('/community/tags-populares');
   return response.data;
 };
+
+export const uploadFile = async (file) => {
+  const formData = new FormData();
+  formData.append('file', file);
+  const response = await api.post('/community/upload', formData, {
+    headers: { 'Content-Type': 'multipart/form-data' }
+  });
+  return response.data;
+};

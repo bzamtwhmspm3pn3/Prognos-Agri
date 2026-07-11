@@ -1,5 +1,7 @@
 require("dotenv").config();
 const express = require("express");
+const http = require('http');
+const { Server } = require('socket.io');
 const cors = require("cors");
 const mongoose = require("mongoose");
 const helmet = require("helmet");
@@ -27,6 +29,21 @@ const mercadoYangueProxy = require('./routes/mercadoYangueProxy');
 const errorHandler = require("./middleware/errorHandler");
 
 const app = express();
+const server = http.createServer(app);
+const io = new Server(server, {
+  cors: {
+    origin: function (origin, callback) {
+      if (!origin || allowedOrigins.some(o => origin.startsWith(o))) {
+        callback(null, true);
+      } else {
+        callback(null, false);
+      }
+    },
+    credentials: true
+  }
+});
+const setupSocket = require('./socketHandler');
+setupSocket(io);
 const PORT = process.env.PORT || 5000;
 
 const defaultOrigins = [
@@ -237,7 +254,7 @@ app.get("/", (req, res) => {
 
 app.use(errorHandler);
 
-app.listen(PORT, () => {
+server.listen(PORT, () => {
   console.log("\n" + "=".repeat(60));
   console.log("🌾 PROGNOS AGRI 2.0 BACKEND INICIADO");
   console.log("=".repeat(60));

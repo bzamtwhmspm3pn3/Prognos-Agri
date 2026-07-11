@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { Users, MessageCircle, Heart, Eye, Plus, Search, Tag, Send, Loader, AlertCircle, ArrowLeft, LogIn, UserCheck, UserX, Shield, Image } from 'lucide-react';
+import { Users, MessageCircle, Heart, Eye, Plus, Search, Tag, Send, Loader, AlertCircle, ArrowLeft, LogIn, UserCheck, UserX, Shield, Image, Paperclip } from 'lucide-react';
 import PrognosCard from '../components/PrognosCard';
 import { usePrognos } from '../contexts/PrognosContext';
-import { listarPosts, criarPost, likePost, comentar, listarGrupos, criarGrupo, getTagsPopulares, listarMensagens, enviarMensagem, solicitarEntrada, aprovarMembro, removerMembro } from '../../services/communityService';
+import { listarPosts, criarPost, likePost, comentar, listarGrupos, criarGrupo, getTagsPopulares, listarMensagens, enviarMensagem, solicitarEntrada, aprovarMembro, removerMembro, uploadFile } from '../../services/communityService';
+import { connectSocket, joinGrupo, leaveGrupo, onNewMessage, offNewMessage, sendMessage as sendSocketMessage, disconnectSocket } from '../../services/socketService';
 
 export default function Community() {
   const { user } = usePrognos();
@@ -32,6 +33,8 @@ export default function Community() {
   const [msgTexto, setMsgTexto] = useState('');
   const [loadingMsgs, setLoadingMsgs] = useState(false);
   const [gruposDetalhe, setGruposDetalhe] = useState({});
+  const [uploading, setUploading] = useState(false);
+  const fileInputRef = useRef(null);
   const chatEndRef = useRef(null);
 
   const carregarDados = useCallback(async () => {
@@ -59,6 +62,31 @@ export default function Community() {
   }, []);
 
   useEffect(() => { carregarDados(); }, [carregarDados]);
+
+  useEffect(() => {
+    const token = localStorage.getItem('prognos_token');
+    if (token) {
+      const socket = connectSocket(token);
+      if (socket) {
+        onNewMessage((msg) => {
+          setMensagens(prev => [...prev, msg]);
+        });
+      }
+    }
+    return () => {
+      offNewMessage();
+      if (chatGroup) leaveGrupo(chatGroup._id);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (chatGroup?._id) {
+      joinGrupo(chatGroup._id);
+    }
+    return () => {
+      if (chatGroup?._id) leaveGrupo(chatGroup._id);
+    };
+  }, [chatGroup?._id]);
 
   useEffect(() => {
     if (chatEndRef.current) {
@@ -92,13 +120,31 @@ export default function Community() {
     e.preventDefault();
     if (!msgTexto.trim()) return;
     try {
+      await sendSocketMessage(chatGroup._id, msgTexto);
+      setMsgTexto('');
+    } catch (err) {
       const res = await enviarMensagem(chatGroup._id, msgTexto);
+      if (res.success) setMensagens(prev => [...prev, res.data]);
+      setMsgTexto('');
+    }
+  };
+
+  const handleFileUpload = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    try {
+      setUploading(true);
+      const res = await uploadFile(file);
       if (res.success) {
-        setMensagens(prev => [...prev, res.data]);
-        setMsgTexto('');
+        const isImage = file.type.startsWith('image');
+        const conteudo = isImage ? `🖼️ ${file.name}` : `📎 ${file.name}`;
+        await sendSocketMessage(chatGroup._id, conteudo, isImage ? res.data.url : null);
       }
     } catch (err) {
-      console.error('Erro ao enviar mensagem:', err);
+      console.error('Erro ao enviar ficheiro:', err);
+    } finally {
+      setUploading(false);
+      if (fileInputRef.current) fileInputRef.current.value = '';
     }
   };
 
@@ -286,7 +332,17 @@ export default function Community() {
               {msg.usuarioId?.username || msg.usuarioId?.profile?.nome || 'Anónimo'}
             </div>
           )}
-          <div>{msg.conteudo}</div>
+          {msg.tipo === 'imagem' && msg.imagemUrl ? (
+            <div>
+              <img src={msg.imagemUrl} alt="Imagem" style={{
+                maxWidth: '200px', maxHeight: '200px', borderRadius: '8px',
+                cursor: 'pointer', display: 'block'
+              }} onClick={() => window.open(msg.imagemUrl, '_blank')} />
+              {msg.conteudo !== '🖼️' && <div style={{ marginTop: '4px' }}>{msg.conteudo}</div>}
+            </div>
+          ) : (
+            <div>{msg.conteudo}</div>
+          )}
           <div style={{
             fontSize: '0.65rem', opacity: 0.7, textAlign: 'right', marginTop: '2px'
           }}>
@@ -364,6 +420,12 @@ export default function Community() {
               <input type="text" className="input" placeholder="Escrever mensagem..."
                 value={msgTexto} onChange={e => setMsgTexto(e.target.value)}
                 style={{ flex: 1 }} />
+              <input type="file" ref={fileInputRef} style={{ display: 'none' }}
+                accept="image/*,.pdf,.doc,.docx" onChange={handleFileUpload} />
+              <button type="button" className="btn btn-ghost" onClick={() => fileInputRef.current?.click()}
+                disabled={uploading} title="Anexar ficheiro">
+                {uploading ? <Loader size={16} className="spinner" /> : <Paperclip size={16} />}
+              </button>
               <button type="submit" className="btn btn-primary" disabled={!msgTexto.trim()}>
                 <Send size={16} />
               </button>

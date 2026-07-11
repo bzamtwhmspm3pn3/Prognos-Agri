@@ -326,6 +326,15 @@ const getMensagensNaoLidas = async (req, res, next) => {
   } catch (error) { next(error); }
 };
 
+const uploadFile = async (req, res, next) => {
+  try {
+    if (!req.file) return res.status(400).json({ success: false, message: 'Nenhum ficheiro enviado' });
+    const baseUrl = `${req.protocol}://${req.get('host')}`;
+    const url = `${baseUrl}/uploads/chat/${req.file.filename}`;
+    res.json({ success: true, data: { url, nome: req.file.originalname, tipo: req.file.mimetype } });
+  } catch (error) { next(error); }
+};
+
 const getTagsPopulares = async (req, res, next) => {
   try {
     const tags = await CommunityPost.aggregate([
@@ -358,5 +367,6 @@ module.exports = {
   enviarMensagem,
   listarMensagens,
   getMensagensNaoLidas,
-  getTagsPopulares
+  getTagsPopulares,
+  uploadFile
 };
