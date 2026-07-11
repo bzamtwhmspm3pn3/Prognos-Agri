@@ -25,6 +25,18 @@ export const getUserProfile = async (userId) => {
   return response.data;
 };
 
+export const updateUserProfile = async (userId, profileData) => {
+  const response = await api.put(`/profile/${userId}`, profileData);
+  return response.data;
+};
+
+export const uploadProfileImage = async (userId, formData) => {
+  const response = await api.post(`/profile/${userId}/image`, formData, {
+    headers: { 'Content-Type': 'multipart/form-data' }
+  });
+  return response.data;
+};
+
 export const logout = () => {
   localStorage.removeItem('prognos_token');
   localStorage.removeItem('prognos_user');

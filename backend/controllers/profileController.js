@@ -1,41 +1,143 @@
-// controllers/profileController.js
-const getProfile = (req, res) => {
-  console.log('✅ getProfile chamado');
-  res.json({ 
-    success: true, 
-    message: 'getProfile OK', 
-    data: {
-      nome: 'Agricultor Teste',
-      email: 'teste@agrookuvanja.ao',
-      propriedade: 'Fazenda Esperança',
-      hectares: 50
+const Profile = require('../models/profile');
+const User = require('../models/user');
+const fs = require('fs');
+const path = require('path');
+
+const getProfile = async (req, res) => {
+  try {
+    const { userId } = req.params;
+    if (req.userId !== userId) {
+      return res.status(403).json({ success: false, message: 'Acesso negado' });
     }
-  });
+
+    let profile = await Profile.findOne({ user: userId }).populate('user', 'username email role');
+    
+    if (!profile) {
+      const user = await User.findById(userId);
+      if (!user) {
+        return res.status(404).json({ success: false, message: 'Utilizador não encontrado' });
+      }
+      profile = await Profile.create({
+        user: userId,
+        nome: user.username,
+        email: user.email,
+        tipo: 'individual',
+        status: 'activo',
+        executacoesUsadas: 0,
+        limiteExecucoes: 50
+      });
+      profile = await Profile.findOne({ user: userId }).populate('user', 'username email role');
+    }
+
+    res.json({ success: true, data: profile });
+  } catch (error) {
+    console.error('Erro getProfile:', error);
+    res.status(500).json({ success: false, message: 'Erro ao carregar perfil' });
+  }
 };
 
-const updateProfile = (req, res) => {
-  console.log('✅ updateProfile chamado');
-  res.json({ 
-    success: true, 
-    message: 'updateProfile OK' 
-  });
+const updateProfile = async (req, res) => {
+  try {
+    const { userId } = req.params;
+    if (req.userId !== userId) {
+      return res.status(403).json({ success: false, message: 'Acesso negado' });
+    }
+
+    const allowedFields = [
+      'nome', 'tipo', 'nomeOrganizacao', 'identificacao', 'tipoIdentificacao',
+      'dataNascimento', 'dataFundacao', 'telefone',
+      'endereco', 'dadosAdicionais', 'configuracoes'
+    ];
+
+    const updateData = {};
+    for (const field of allowedFields) {
+      if (req.body[field] !== undefined) {
+        updateData[field] = req.body[field];
+      }
+    }
+
+    // Handle nested objects
+    if (req.body.endereco) {
+      updateData.endereco = { ...req.body.endereco };
+    }
+    if (req.body.dadosAdicionais) {
+      updateData.dadosAdicionais = { ...req.body.dadosAdicionais };
+    }
+    if (req.body.configuracoes) {
+      updateData.configuracoes = { ...req.body.configuracoes };
+    }
+
+    const profile = await Profile.findOneAndUpdate(
+      { user: userId },
+      { $set: updateData },
+      { new: true, runValidators: true }
+    ).populate('user', 'username email role');
+
+    if (!profile) {
+      return res.status(404).json({ success: false, message: 'Perfil não encontrado' });
+    }
+
+    res.json({ success: true, data: profile });
+  } catch (error) {
+    console.error('Erro updateProfile:', error);
+    res.status(500).json({ success: false, message: 'Erro ao actualizar perfil' });
+  }
 };
 
-const uploadProfileImage = (req, res) => {
-  console.log('✅ uploadProfileImage chamado');
-  res.json({ 
-    success: true, 
-    message: 'uploadProfileImage OK', 
-    imageUrl: req.file ? `/uploads/${req.file.filename}` : null
-  });
+const uploadProfileImage = async (req, res) => {
+  try {
+    const { userId } = req.params;
+    if (req.userId !== userId) {
+      return res.status(403).json({ success: false, message: 'Acesso negado' });
+    }
+
+    if (!req.file) {
+      return res.status(400).json({ success: false, message: 'Nenhuma imagem enviada' });
+    }
+
+    const imageUrl = `/uploads/${req.file.filename}`;
+
+    const profile = await Profile.findOneAndUpdate(
+      { user: userId },
+      {
+        $set: {
+          'imagemPerfil.url': imageUrl,
+          'imagemPerfil.secure_url': imageUrl
+        }
+      },
+      { new: true }
+    );
+
+    res.json({ success: true, imageUrl, data: profile });
+  } catch (error) {
+    console.error('Erro uploadProfileImage:', error);
+    res.status(500).json({ success: false, message: 'Erro ao enviar imagem' });
+  }
 };
 
-const activatePlan = (req, res) => {
-  console.log('✅ activatePlan chamado');
-  res.json({ 
-    success: true, 
-    message: 'activatePlan OK' 
-  });
+const activatePlan = async (req, res) => {
+  try {
+    const { userId } = req.params;
+    if (req.userId !== userId) {
+      return res.status(403).json({ success: false, message: 'Acesso negado' });
+    }
+
+    const profile = await Profile.findOne({ user: userId });
+    if (!profile) {
+      return res.status(404).json({ success: false, message: 'Perfil não encontrado' });
+    }
+
+    const ativado = profile.ativarProduto(req.body.codigo);
+    if (!ativado) {
+      return res.status(400).json({ success: false, message: 'Código de activação inválido' });
+    }
+
+    await profile.save();
+    res.json({ success: true, message: 'Produto activado com sucesso', data: profile });
+  } catch (error) {
+    console.error('Erro activatePlan:', error);
+    res.status(500).json({ success: false, message: 'Erro ao activar produto' });
+  }
 };
 
 module.exports = {
