@@ -413,7 +413,6 @@ export default function DeteccaoPragas() {
                     }}
                     alt={`Feed ${cameraIPSelecionada.nome}`}
                     onError={() => setIpCameraErro('Erro ao conectar à câmara IP')}
-                    crossOrigin="anonymous"
                   />
                 </div>
                 {ipCameraErro && (

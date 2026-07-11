@@ -732,7 +732,6 @@ const StreamViewer = ({
               alt={`Stream ${camera.nome}`}
               onLoad={() => setCarregando(false)}
               onError={handleImageError}
-              crossOrigin="anonymous"
             />
             {analisando && (
               <div style={{
