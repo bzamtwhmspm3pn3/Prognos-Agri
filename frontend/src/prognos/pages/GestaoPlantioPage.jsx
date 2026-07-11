@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import {
   Sprout, Plus, ChevronRight, CheckCircle2, Circle, Clock,
   Sparkles, Loader, AlertCircle, X, ArrowLeft, Send, BookOpen,
-  Target, Truck, Tractor, Seedling, Droplets, Wheat, Warehouse,
+  Target, Truck, Droplets,
   Factory, Package, ShoppingBag, HelpCircle
 } from 'lucide-react';
 import PrognosCard from '../components/PrognosCard';
@@ -12,13 +12,13 @@ const ICONES_FASE = {
   planeamento: Target,
   aquisicao_insumos: ShoppingBag,
   logistica_insumos: Truck,
-  preparo_solo: Tractor,
-  plantio: Seedling,
+  preparo_solo: Sprout,
+  plantio: Sprout,
   manejo_cultura: Droplets,
-  colheita: Wheat,
-  pos_colheita: Warehouse,
-  industrializacao: Factory,
-  distribuicao: Package,
+  colheita: Sprout,
+  pos_colheita: Package,
+  industrializacao: Package,
+  distribuicao: Truck,
   comercializacao: ShoppingBag
 };
 
