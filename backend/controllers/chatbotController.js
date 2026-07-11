@@ -113,17 +113,17 @@ async function gerarRespostaIA(mensagem, user) {
   if (apiKey) {
     try {
       const prompt = `És um assistente agrícola especializado em Angola. 
-Responde à pergunta do utilizador de forma clara e útil, em português de Angola.
+Responde de forma clara, direta e completa, em português de Angola.
 Contexto: O utilizador usa o Prognos Agri, uma plataforma agrícola.
-Mantém a resposta curta (máx 200 palavras) e prática.
-
+Responde em 3-5 parágrafos curtos. NÃO cortes a resposta a meio.
+ 
 Pergunta: ${mensagem}`;
 
       const response = await axios.post(
         `https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent?key=${apiKey}`,
         {
           contents: [{ parts: [{ text: prompt }] }],
-          generationConfig: { temperature: 0.7, maxOutputTokens: 800 }
+          generationConfig: { temperature: 0.7, maxOutputTokens: 2048 }
         },
         { timeout: 15000 }
       );
