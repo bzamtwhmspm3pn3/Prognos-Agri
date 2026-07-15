@@ -408,6 +408,11 @@ export default function GestaoPlantioPage() {
       const andamento = p.fases.filter(f => f.status === 'em_andamento').length;
       const pendentes = p.fases.filter(f => f.status === 'pendente').length;
 
+      if (plano.resumo) {
+        textBlock(plano.resumo);
+        y += 4;
+      }
+
       tbl(['Indicador', 'Valor'], [
         ['Cultura', p.cultura || '-'],
         ['Provencia', p.provincia || '-'],
@@ -426,6 +431,11 @@ export default function GestaoPlantioPage() {
         sec('RECOMENDACAO DE LOCALIZACAO', '2');
         textBlock(plano.recomendacaoLocalizacao);
         y += 4;
+
+        if (plano.municipiosRecomendados?.length) {
+          const munBody = plano.municipiosRecomendados.map(m => [m.nome, m.justificativa || '-']);
+          tbl(['Municipio', 'Justificativa'], munBody);
+        }
       }
 
       // 3. PROGRESSO DAS FASES
@@ -475,6 +485,7 @@ export default function GestaoPlantioPage() {
           ['Produtividade', `${prod.produtividadeTonHa || 0} ton/ha`],
           ['Area total cultivada', `${prod.areaTotalHa} ha`],
           ['Producao total estimada', `${prod.ProducaoTotalTon || 0} ton`],
+          ['Preco estimado por tonelada', prod.precoEstimado ? `${fN(prod.precoEstimado)} Kz/ton` : '-'],
           ['Renda bruta estimada', `${fN(prod.rendaBrutaEstimada)} Kz`],
           ['Lucro estimado', `${fN(prod.lucroEstimado)} Kz`],
         ]);
@@ -982,9 +993,24 @@ export default function GestaoPlantioPage() {
 
           return (
             <div style={{ display: 'grid', gap: '16px', marginTop: '16px' }}>
+              {plano.resumo && (
+                <PrognosCard title="📋 Análise do Plano" icon={<FileText size={18} />}>
+                  <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', lineHeight: 1.6 }}>{plano.resumo}</p>
+                </PrognosCard>
+              )}
+
               {plano.recomendacaoLocalizacao && (
                 <PrognosCard title="📍 Recomendação de Localização">
                   <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', lineHeight: 1.6 }}>{plano.recomendacaoLocalizacao}</p>
+                  {plano.municipiosRecomendados?.length > 0 && (
+                    <div style={{ marginTop: '12px' }}>
+                      {plano.municipiosRecomendados.map((m, i) => (
+                        <div key={i} style={{ padding: '8px', background: 'var(--bg-body)', borderRadius: '8px', marginBottom: '6px', fontSize: '0.85rem' }}>
+                          <strong>{m.nome}</strong> — {m.justificativa}
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </PrognosCard>
               )}
 
@@ -1057,6 +1083,11 @@ export default function GestaoPlantioPage() {
                         <div style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0', borderBottom: '1px solid var(--border)' }}>
                           <span>Produção total</span><strong>{prod.ProducaoTotalTon || 0} ton</strong>
                         </div>
+                        {prod.precoEstimado ? (
+                          <div style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0', borderBottom: '1px solid var(--border)' }}>
+                            <span>Preço por tonelada</span><strong>{Number(prod.precoEstimado).toLocaleString()} Kz/ton</strong>
+                          </div>
+                        ) : null}
                         <div style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0', borderBottom: '1px solid var(--border)' }}>
                           <span>Renda bruta</span><strong style={{ color: '#4A7C59' }}>{Number(prod.rendaBrutaEstimada || 0).toLocaleString()} Kz</strong>
                         </div>

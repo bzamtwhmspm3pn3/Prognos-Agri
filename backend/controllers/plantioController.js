@@ -42,7 +42,9 @@ exports.salvarPlanoCompleto = async (req, res, next) => {
       nome, cultura, provincia, municipio, area, orcamento, dataInicio,
       status: 'planeado', progresso: 5,
       plano: {
+        resumo: plano?.resumo || '',
         recomendacaoLocalizacao: plano?.localizacao?.recomendacao || '',
+        municipiosRecomendados: plano?.localizacao?.municipios || [],
         investimento: {
           sementes: plano?.investimento?.itens?.[0]?.custo || 0,
           fertilizantes: plano?.investimento?.itens?.[1]?.custo || 0,
@@ -68,6 +70,7 @@ exports.salvarPlanoCompleto = async (req, res, next) => {
           produtividadeTonHa: plano?.producao?.produtividade || 0,
           areaTotalHa: Number(area),
           ProducaoTotalTon: plano?.producao?.producaoTotal || 0,
+          precoEstimado: plano?.producao?.precoEstimado || 0,
           rendaBrutaEstimada: plano?.producao?.rendaBruta || 0,
           lucroEstimado: plano?.producao?.lucroEstimado || 0
         },
@@ -362,7 +365,7 @@ exports.planearCompleto = async (req, res, next) => {
 
     if (apiKey) {
       try {
-        const prompt = `És um especialista agrícola angolano. Gera um plano completo de plantio com dados realistas para Angola.
+        const prompt = `És um especialista agrícola angolano honesto e realista. Gera um plano completo de plantio com dados realistas para Angola.
 
 Cultura: ${cultura}
 Província: ${provincia}
@@ -371,13 +374,22 @@ Município: ${municipio || 'Não especificado'}
 Orçamento: ${orcamento || 'Não especificado'} Kz
 Data início: ${dataInicio || 'Não especificada'}
 
+REGRAS OBRIGATÓRIAS:
+1. Sé REALISTA. Se a cultura NÃO é adequada para a província/município, indica isso claramente no resumo e nas recomendações. NÃO sejas sempre otimista.
+2. Se o orçamento é insuficiente para a área, indica-o e sugere alternativas mais viáveis.
+3. Produtividade deve refletir condições REAIS de Angola (não valores de países desenvolvidos). Milho em Angola: 0.8-2.5 ton/ha dependendo do manejo. Feijão: 0.5-1.5 ton/ha. Mandioca: 8-15 ton/ha.
+4. Preços devem refletir o mercado angolano real.
+5. Riscos devem ser específicos da região, não genéricos.
+6. O campo "resumo" deve conter uma análise honesta incluindo: adequação do solo/clima, viabilidade económica, alertas se a cultura não for recomendada, e recomendação final (recomendar, desaconselhar, ou recomendar com ressalvas).
+7. Se desaconselha a cultura, explica por que e sugere alternativas.
+
 Responde APENAS com JSON válido (sem markdown, sem comentários):
 {
-  "resumo": "breve descrição do plano",
+  "resumo": "Análise honesta e contextualizada do plano. Se a cultura não é adequada, diz-o. Inclui viabilidade económica, alertas, e recomendação final.",
   "localizacao": {
-    "recomendacao": "texto sobre por que esta região é propícia",
+    "recomendacao": "Análise realista do solo, clima e condições da região. Se não é favorável, indica isso.",
     "municipios": [
-      {"nome": "Município X", "justificativa": "solo/clima"}
+      {"nome": "Município X", "justificativa": "solo/clima adequados ou não"}
     ]
   },
   "investimento": {
@@ -417,13 +429,13 @@ Responde APENAS com JSON válido (sem markdown, sem comentários):
   },
   "riscos": {
     "climaticos": [
-      {"nome": "Seca", "icone": "☀️", "mitigacao": "recomendação"}
+      {"nome": "Risco específico da região", "icone": "☀️", "mitigacao": "recomendação específica e acionável"}
     ],
     "pragas": [
-      {"nome": "Lagarta", "icone": "🐛", "mitigacao": "recomendação"}
+      {"nome": "Praga específica da cultura/região", "icone": "🐛", "mitigacao": "recomendação específica e acionável"}
     ],
     "doencas": [
-      {"nome": "Fungo", "icone": "🍄", "mitigacao": "recomendação"}
+      {"nome": "Doença específica da cultura/região", "icone": "🍄", "mitigacao": "recomendação específica e acionável"}
     ]
   }
 }

@@ -40,6 +40,7 @@ const producaoSchema = new mongoose.Schema({
   produtividadeTonHa: Number,
   areaTotalHa: Number,
   ProducaoTotalTon: Number,
+  precoEstimado: Number,
   rendaBrutaEstimada: Number,
   lucroEstimado: Number
 }, { _id: false });
@@ -71,7 +72,9 @@ const plantioSchema = new mongoose.Schema({
   receitaReal: Number,
   fases: [faseSchema],
   plano: {
+    resumo: String,
     recomendacaoLocalizacao: String,
+    municipiosRecomendados: [{ nome: String, justificativa: String }],
     investimento: investimentoSchema,
     capitalHumano: capitalHumanoSchema,
     cronograma: [cronogramaItemSchema],
