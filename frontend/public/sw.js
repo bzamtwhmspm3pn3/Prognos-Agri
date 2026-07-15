@@ -1,4 +1,4 @@
-const CACHE_NAME = 'prognos-agri-v1';
+const CACHE_NAME = 'prognos-agri-v2';
 const ASSETS_TO_CACHE = [
   '/',
   '/manifest.json',
@@ -32,8 +32,15 @@ self.addEventListener('activate', (event) => {
   self.clients.claim();
 });
 
+self.addEventListener('message', (event) => {
+  if (event.data && event.data.type === 'SKIP_WAITING') {
+    self.skipWaiting();
+  }
+});
+
 self.addEventListener('fetch', (event) => {
   if (event.request.method !== 'GET') return;
+  if (event.request.url.includes('/api/')) return;
   event.respondWith(
     caches.match(event.request).then((cachedResponse) => {
       if (cachedResponse) {
