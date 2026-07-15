@@ -4,8 +4,9 @@ import {
   Sparkles, Loader, AlertCircle, X, ArrowLeft, Send, BookOpen,
   Target, Truck, Droplets, Factory, Package, ShoppingBag, HelpCircle,
   Download, BarChart3, PieChart, TrendingUp, AlertTriangle, Users,
-  Calendar, MapPin, DollarSign, Trash2, Edit3, Archive, Ban, FileText, Camera
+  Calendar, MapPin, DollarSign, Trash2, Edit3, Archive, Ban, FileText, Camera, Eye
 } from 'lucide-react';
+import { jsPDF } from 'jspdf';
 import PrognosCard from '../components/PrognosCard';
 import * as plantioService from '../../services/plantioService';
 
@@ -292,129 +293,125 @@ export default function GestaoPlantioPage() {
     const cronograma = plano.cronograma || [];
     const riscos = plano.riscos || [];
 
-    const htmlContent = `
-<!DOCTYPE html>
-<html lang="pt">
-<head>
-<meta charset="utf-8">
-<title>Relatório de Plantio - ${p.nome}</title>
-<style>
-  body { font-family: 'Segoe UI', Arial, sans-serif; max-width: 800px; margin: 0 auto; padding: 20px; color: #333; }
-  h1 { color: #003366; border-bottom: 3px solid #4A7C59; padding-bottom: 10px; font-size: 1.5rem; }
-  h2 { color: #4A7C59; margin-top: 24px; font-size: 1.1rem; border-left: 4px solid #4A7C59; padding-left: 10px; }
-  table { width: 100%; border-collapse: collapse; margin: 12px 0; font-size: 0.85rem; }
-  th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
-  th { background: #f5f5f5; font-weight: 600; }
-  .total { font-weight: 700; background: #e8f5e9; }
-  .risco-item { padding: 8px; margin: 4px 0; border-radius: 6px; font-size: 0.85rem; }
-  .risco-clima { background: #fff8e1; border-left: 3px solid #f59e0b; }
-  .risco-praga { background: #ffebee; border-left: 3px solid #ef4444; }
-  .risco-doenca { background: #f3e5f5; border-left: 3px solid #8b5cf6; }
-  .fase-item { display: flex; align-items: center; gap: 8px; padding: 6px 0; border-bottom: 1px solid #eee; }
-  .status-badge { padding: 2px 8px; border-radius: 10px; font-size: 0.75rem; font-weight: 600; }
-  .status-concluido { background: #e8f5e9; color: #4A7C59; }
-  .status-andamento { background: #e3f2fd; color: #3b82f6; }
-  .status-pendente { background: #f5f5f5; color: #94a3b8; }
-  .header-meta { display: flex; gap: 20px; font-size: 0.85rem; color: #666; margin: 8px 0 16px; }
-  @media print { body { padding: 0; } }
-</style>
-</head>
-<body>
-<h1>🌾 Relatório de Plantio</h1>
-<div class="header-meta">
-  <span><strong>Nome:</strong> ${p.nome}</span>
-  <span><strong>Cultura:</strong> ${p.cultura}</span>
-  ${p.provincia ? `<span><strong>Província:</strong> ${p.provincia}</span>` : ''}
-  ${p.area ? `<span><strong>Área:</strong> ${p.area} ha</span>` : ''}
-  ${p.orcamento ? `<span><strong>Orçamento:</strong> ${Number(p.orcamento).toLocaleString()} Kz</span>` : ''}
-  <span><strong>Status:</strong> ${p.status === 'concluido' ? 'Concluído' : p.status === 'cancelado' ? 'Cancelado' : 'Em curso'}</span>
-</div>
+    const doc = new jsPDF();
+    const pageW = doc.internal.pageSize.getWidth();
+    let y = 20;
 
-<h2>📊 Progresso das Fases</h2>
-<table>
-  <thead><tr><th>Fase</th><th>Status</th><th>Observações</th></tr></thead>
-  <tbody>
-    ${(p.fases || []).map(f => `
-      <tr>
-        <td>${f.nome}</td>
-        <td><span class="status-badge status-${f.status === 'concluido' ? 'concluido' : f.status === 'em_andamento' ? 'andamento' : 'pendente'}">${f.status === 'concluido' ? '✅ Concluído' : f.status === 'em_andamento' ? '⏳ Em andamento' : f.status === 'pulado' ? '⏭️ Pulado' : '⭕ Pendente'}</span></td>
-        <td>${f.observacoes || '-'}</td>
-      </tr>
-    `).join('')}
-  </tbody>
-</table>
+    const addLine = () => { doc.setDrawColor(74, 124, 89); doc.setLineWidth(0.5); doc.line(14, y, pageW - 14, y); y += 4; };
+    const checkPage = (needed) => { if (y + needed > 270) { doc.addPage(); y = 20; } };
 
-${inv.total ? `
-<h2>💰 Investimento</h2>
-<table>
-  <thead><tr><th>Item</th><th style="text-align:right">Custo (Kz)</th><th style="text-align:right">%</th></tr></thead>
-  <tbody>
-    ${inv.sementes ? `<tr><td>Sementes</td><td style="text-align:right">${Number(inv.sementes).toLocaleString()}</td><td style="text-align:right">20%</td></tr>` : ''}
-    ${inv.fertilizantes ? `<tr><td>Fertilizantes</td><td style="text-align:right">${Number(inv.fertilizantes).toLocaleString()}</td><td style="text-align:right">25%</td></tr>` : ''}
-    ${inv.defensivos ? `<tr><td>Defensivos</td><td style="text-align:right">${Number(inv.defensivos).toLocaleString()}</td><td style="text-align:right">10%</td></tr>` : ''}
-    ${inv.maoObra ? `<tr><td>Mão de obra</td><td style="text-align:right">${Number(inv.maoObra).toLocaleString()}</td><td style="text-align:right">25%</td></tr>` : ''}
-    ${inv.maquinario ? `<tr><td>Maquinário</td><td style="text-align:right">${Number(inv.maquinario).toLocaleString()}</td><td style="text-align:right">10%</td></tr>` : ''}
-    ${inv.imprevistos ? `<tr><td>Imprevistos</td><td style="text-align:right">${Number(inv.imprevistos).toLocaleString()}</td><td style="text-align:right">10%</td></tr>` : ''}
-    <tr class="total"><td>TOTAL</td><td style="text-align:right">${Number(inv.total).toLocaleString()} Kz</td><td style="text-align:right">100%</td></tr>
-  </tbody>
-</table>
-` : ''}
+    // Header
+    doc.setFontSize(18); doc.setTextColor(0, 51, 102); doc.text('Relatório de Plantio', 14, y); y += 8;
+    doc.setFontSize(9); doc.setTextColor(100); doc.text(`Gerado em ${new Date().toLocaleDateString('pt-PT')} às ${new Date().toLocaleTimeString('pt-PT')}`, 14, y); y += 8;
+    addLine();
 
-${prod.areaTotalHa ? `
-<h2>📈 Produção Estimada</h2>
-<table>
-  <tbody>
-    <tr><td>Produtividade</td><td>${prod.produtividadeTonHa || 0} ton/ha</td></tr>
-    <tr><td>Área total</td><td>${prod.areaTotalHa} ha</td></tr>
-    <tr><td>Produção total</td><td>${prod.ProducaoTotalTon || 0} ton</td></tr>
-    <tr><td>Renda bruta estimada</td><td>${Number(prod.rendaBrutaEstimada || 0).toLocaleString()} Kz</td></tr>
-    <tr class="total"><td>Lucro estimado</td><td>${Number(prod.lucroEstimado || 0).toLocaleString()} Kz</td></tr>
-  </tbody>
-</table>
-` : ''}
+    // Info
+    doc.setFontSize(11); doc.setTextColor(0); doc.setFont(undefined, 'bold');
+    doc.text(`Nome: ${p.nome || '-'}`, 14, y); y += 6;
+    doc.setFont(undefined, 'normal');
+    doc.text(`Cultura: ${p.cultura || '-'}`, 14, y); doc.text(`Área: ${p.area ? p.area + ' ha' : '-'}`, pageW / 2, y); y += 6;
+    doc.text(`Província: ${p.provincia || '-'}`, 14, y); doc.text(`Município: ${p.municipio || '-'}`, pageW / 2, y); y += 6;
+    doc.text(`Orçamento: ${p.orcamento ? Number(p.orcamento).toLocaleString() + ' Kz' : '-'}`, 14, y);
+    doc.text(`Status: ${p.status === 'concluido' ? 'Concluído' : p.status === 'cancelado' ? 'Cancelado' : 'Em curso'}`, pageW / 2, y); y += 8;
+    addLine();
 
-${capH.total ? `
-<h2>👥 Capital Humano</h2>
-<table>
-  <tbody>
-    <tr><td>Trabalhadores permanentes</td><td>${capH.trabalhadoresPermanentes || 0}</td></tr>
-    <tr><td>Trabalhadores sazonais</td><td>${capH.trabalhadoresSazonais || 0}</td></tr>
-    <tr><td>Técnicos/operadores</td><td>${capH.tecnicosOperadores || 0}</td></tr>
-    <tr class="total"><td>Total</td><td>${capH.total} pessoas</td></tr>
-  </tbody>
-</table>
-` : ''}
+    // Fases
+    checkPage(30);
+    doc.setFontSize(12); doc.setFont(undefined, 'bold'); doc.setTextColor(0, 51, 102);
+    doc.text('Progresso das Fases', 14, y); y += 7;
+    doc.setFontSize(9); doc.setFont(undefined, 'normal'); doc.setTextColor(0);
+    (p.fases || []).forEach(f => {
+      checkPage(8);
+      const st = f.status === 'concluido' ? 'Concluído' : f.status === 'em_andamento' ? 'Em andamento' : f.status === 'pulado' ? 'Pulado' : 'Pendente';
+      doc.text(`${st === 'Concluído' ? '[x]' : '[ ]'} ${f.nome}${f.observacoes ? ' - ' + f.observacoes : ''}`, 18, y);
+      y += 6;
+    });
+    y += 4;
 
-${cronograma.length ? `
-<h2>📅 Cronograma</h2>
-<table>
-  <thead><tr><th>Atividade</th><th>Início</th><th>Fim</th><th style="text-align:right">Dias</th></tr></thead>
-  <tbody>
-    ${cronograma.map(c => `<tr><td>${c.atividade}</td><td>${new Date(c.inicio).toLocaleDateString('pt-PT')}</td><td>${new Date(c.fim).toLocaleDateString('pt-PT')}</td><td style="text-align:right">${c.dias}</td></tr>`).join('')}
-  </tbody>
-</table>
-` : ''}
+    // Investimento
+    if (inv.total) {
+      checkPage(40);
+      doc.setFontSize(12); doc.setFont(undefined, 'bold'); doc.setTextColor(0, 51, 102);
+      doc.text('Investimento', 14, y); y += 7;
+      doc.setFontSize(9); doc.setFont(undefined, 'normal'); doc.setTextColor(0);
+      const items = [
+        ['Sementes', inv.sementes], ['Fertilizantes', inv.fertilizantes], ['Defensivos', inv.defensivos],
+        ['Mão de obra', inv.maoObra], ['Maquinário', inv.maquinario], ['Imprevistos', inv.imprevistos]
+      ];
+      items.forEach(([label, val]) => {
+        if (val) { checkPage(6); doc.text(`${label}: ${Number(val).toLocaleString()} Kz`, 18, y); y += 6; }
+      });
+      checkPage(8); doc.setFont(undefined, 'bold');
+      doc.text(`TOTAL: ${Number(inv.total).toLocaleString()} Kz`, 18, y); y += 8;
+      doc.setFont(undefined, 'normal');
+    }
 
-${riscos.length ? `
-<h2>⚠️ Análise de Riscos</h2>
-${riscos.map(r => `
-  <div class="risco-item risco-${r.tipo === 'climatico' ? 'clima' : r.tipo === 'praga' ? 'praga' : 'doenca'}">
-    <strong>${r.tipo === 'climatico' ? '☀️' : r.tipo === 'praga' ? '🐛' : '🍄'} ${r.descricao}</strong><br>
-    <small>Mitigação: ${r.mitigacao}</small>
-  </div>
-`).join('')}
-` : ''}
+    // Produção
+    if (prod.areaTotalHa) {
+      checkPage(30);
+      doc.setFontSize(12); doc.setFont(undefined, 'bold'); doc.setTextColor(0, 51, 102);
+      doc.text('Produção Estimada', 14, y); y += 7;
+      doc.setFontSize(9); doc.setFont(undefined, 'normal'); doc.setTextColor(0);
+      doc.text(`Produtividade: ${prod.produtividadeTonHa || 0} ton/ha`, 18, y); y += 6;
+      doc.text(`Área total: ${prod.areaTotalHa} ha`, 18, y); y += 6;
+      doc.text(`Produção total: ${prod.ProducaoTotalTon || 0} ton`, 18, y); y += 6;
+      doc.text(`Renda bruta: ${Number(prod.rendaBrutaEstimada || 0).toLocaleString()} Kz`, 18, y); y += 6;
+      doc.setFont(undefined, 'bold');
+      doc.text(`Lucro estimado: ${Number(prod.lucroEstimado || 0).toLocaleString()} Kz`, 18, y); y += 8;
+      doc.setFont(undefined, 'normal');
+    }
 
-<div style="margin-top: 30px; padding-top: 10px; border-top: 2px solid #4A7C59; font-size: 0.8rem; color: #999; text-align: center">
-  Prognos Agri 2.0 — Relatório gerado em ${new Date().toLocaleDateString('pt-PT')} às ${new Date().toLocaleTimeString('pt-PT')}
-</div>
-</body></html>`;
+    // Capital Humano
+    if (capH.total) {
+      checkPage(24);
+      doc.setFontSize(12); doc.setFont(undefined, 'bold'); doc.setTextColor(0, 51, 102);
+      doc.text('Capital Humano', 14, y); y += 7;
+      doc.setFontSize(9); doc.setFont(undefined, 'normal'); doc.setTextColor(0);
+      doc.text(`Permanentes: ${capH.trabalhadoresPermanentes || 0}`, 18, y); y += 6;
+      doc.text(`Sazonais: ${capH.trabalhadoresSazonais || 0}`, 18, y); y += 6;
+      doc.text(`Técnicos: ${capH.tecnicosOperadores || 0}`, 18, y); y += 6;
+      doc.text(`Total: ${capH.total} pessoas`, 18, y); y += 8;
+    }
 
-    const printWindow = window.open('', '_blank');
-    printWindow.document.write(htmlContent);
-    printWindow.document.close();
-    printWindow.focus();
-    setTimeout(() => { printWindow.print(); }, 500);
+    // Cronograma
+    if (cronograma.length) {
+      checkPage(20);
+      doc.setFontSize(12); doc.setFont(undefined, 'bold'); doc.setTextColor(0, 51, 102);
+      doc.text('Cronograma', 14, y); y += 7;
+      doc.setFontSize(8); doc.setFont(undefined, 'normal'); doc.setTextColor(0);
+      cronograma.forEach(c => {
+        checkPage(6);
+        const ini = new Date(c.inicio).toLocaleDateString('pt-PT');
+        const fim = new Date(c.fim).toLocaleDateString('pt-PT');
+        doc.text(`${c.atividade} | ${ini} - ${fim} | ${c.dias} dias`, 18, y);
+        y += 5;
+      });
+      y += 4;
+    }
+
+    // Riscos
+    if (riscos.length) {
+      checkPage(20);
+      doc.setFontSize(12); doc.setFont(undefined, 'bold'); doc.setTextColor(0, 51, 102);
+      doc.text('Análise de Riscos', 14, y); y += 7;
+      doc.setFontSize(8); doc.setFont(undefined, 'normal'); doc.setTextColor(0);
+      riscos.forEach(r => {
+        checkPage(10);
+        const icon = r.tipo === 'climatico' ? 'Climático' : r.tipo === 'praga' ? 'Praga' : 'Doença';
+        doc.text(`[${icon}] ${r.descricao}`, 18, y); y += 5;
+        doc.setTextColor(100);
+        doc.text(`Mitigação: ${r.mitigacao}`, 22, y); y += 6;
+        doc.setTextColor(0);
+      });
+    }
+
+    // Footer
+    checkPage(12);
+    y = 270;
+    doc.setFontSize(7); doc.setTextColor(150);
+    doc.text('Prognos Agri 2.0 — Relatório gerado automaticamente', pageW / 2, y, { align: 'center' });
+
+    doc.save(`Plantio_${(p.nome || 'relatorio').replace(/\s+/g, '_')}_${new Date().toISOString().slice(0, 10)}.pdf`);
   };
 
   const progresso = plantioAtivo
@@ -1175,45 +1172,47 @@ ${riscos.map(r => `
           </div>
           <div className="grid-2" style={{ gap: '16px' }}>
             {plantios.map(p => (
-              <PrognosCard key={p._id} style={{ cursor: 'pointer', position: 'relative' }} onClick={() => setPlantioAtivo(p)}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <div>
-                    <h3 style={{ fontWeight: 600, marginBottom: '4px' }}>{p.nome}</h3>
-                    <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>
-                      {p.cultura} {p.provincia && `• ${p.provincia}`} {p.area && `• ${p.area} ha`}
+              <div key={p._id} style={{ cursor: 'pointer' }} onClick={() => setPlantioAtivo(p)}>
+                <PrognosCard style={{ position: 'relative', height: '100%' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <div>
+                      <h3 style={{ fontWeight: 600, marginBottom: '4px' }}>{p.nome}</h3>
+                      <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>
+                        {p.cultura} {p.provincia && `• ${p.provincia}`} {p.area && `• ${p.area} ha`}
+                      </div>
+                      {p.plano && <span style={{ fontSize: '0.7rem', color: '#8b5cf6', fontWeight: 600 }}>✨ Plano IA</span>}
                     </div>
-                    {p.plano && <span style={{ fontSize: '0.7rem', color: '#8b5cf6', fontWeight: 600 }}>✨ Plano IA</span>}
-                  </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <div style={{
-                      padding: '4px 12px', borderRadius: '50px', fontSize: '0.8rem', fontWeight: 600,
-                      background: p.status === 'concluido' ? 'rgba(74,124,89,0.15)' :
-                                  p.status === 'cancelado' ? 'rgba(239,68,68,0.15)' :
-                                  p.status === 'arquivado' ? 'rgba(100,116,139,0.15)' :
-                                  'rgba(59,130,246,0.15)',
-                      color: p.status === 'concluido' ? '#4A7C59' :
-                             p.status === 'cancelado' ? '#ef4444' :
-                             p.status === 'arquivado' ? '#64748b' : '#3b82f6'
-                    }}>
-                      {p.status === 'concluido' ? 'Concluído' :
-                       p.status === 'cancelado' ? 'Cancelado' :
-                       p.status === 'arquivado' ? 'Arquivado' : 'Em curso'}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <div style={{
+                        padding: '4px 12px', borderRadius: '50px', fontSize: '0.8rem', fontWeight: 600,
+                        background: p.status === 'concluido' ? 'rgba(74,124,89,0.15)' :
+                                    p.status === 'cancelado' ? 'rgba(239,68,68,0.15)' :
+                                    p.status === 'arquivado' ? 'rgba(100,116,139,0.15)' :
+                                    'rgba(59,130,246,0.15)',
+                        color: p.status === 'concluido' ? '#4A7C59' :
+                               p.status === 'cancelado' ? '#ef4444' :
+                               p.status === 'arquivado' ? '#64748b' : '#3b82f6'
+                      }}>
+                        {p.status === 'concluido' ? 'Concluído' :
+                         p.status === 'cancelado' ? 'Cancelado' :
+                         p.status === 'arquivado' ? 'Arquivado' : 'Em curso'}
+                      </div>
+                      <button className="btn btn-sm btn-ghost" onClick={(e) => { e.stopPropagation(); handleEliminarPlantio(p._id); }} title="Eliminar" style={{ color: '#ef4444', padding: '4px' }}>
+                        <Trash2 size={14} />
+                      </button>
                     </div>
-                    <button className="btn btn-sm btn-ghost" onClick={(e) => { e.stopPropagation(); handleEliminarPlantio(p._id); }} title="Eliminar" style={{ color: '#ef4444', padding: '4px' }}>
-                      <Trash2 size={14} />
-                    </button>
                   </div>
-                </div>
-                {(!p.status || p.status !== 'cancelado') && (
-                  <div style={{ marginTop: '12px', height: '6px', background: 'var(--bg-body)', borderRadius: '3px', overflow: 'hidden' }}>
-                    <div style={{
-                      height: '100%', borderRadius: '3px', transition: 'width 0.5s',
-                      width: `${Math.round(p.fases.filter(f => f.status === 'concluido' || f.status === 'pulado').length / p.fases.length * 100)}%`,
-                      background: p.status === 'concluido' ? '#4A7C59' : 'linear-gradient(90deg, var(--secondary), var(--primary))'
-                    }} />
-                  </div>
-                )}
-              </PrognosCard>
+                  {(!p.status || p.status !== 'cancelado') && (
+                    <div style={{ marginTop: '12px', height: '6px', background: 'var(--bg-body)', borderRadius: '3px', overflow: 'hidden' }}>
+                      <div style={{
+                        height: '100%', borderRadius: '3px', transition: 'width 0.5s',
+                        width: `${Math.round(p.fases.filter(f => f.status === 'concluido' || f.status === 'pulado').length / p.fases.length * 100)}%`,
+                        background: p.status === 'concluido' ? '#4A7C59' : 'linear-gradient(90deg, var(--secondary), var(--primary))'
+                      }} />
+                    </div>
+                  )}
+                </PrognosCard>
+              </div>
             ))}
           </div>
         </div>

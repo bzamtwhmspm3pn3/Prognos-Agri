@@ -4,6 +4,7 @@ import { useIntegracao } from '../contexts/IntegracaoContext';
 import { Loader, AlertCircle, Sprout, BarChart3, Download, Calendar, DollarSign, TrendingUp } from 'lucide-react';
 import { deteccaoApi } from '../../services/deteccaoApi';
 import * as plantioService from '../../services/plantioService';
+import { jsPDF } from 'jspdf';
 
 function PieChartCSS({ data, size = 120 }) {
   if (!data?.length) return null;
@@ -70,92 +71,66 @@ export default function RelatoriosColheitaPage() {
   const exportarRelatorioPlantios = () => {
     if (!plantios.length) return;
 
+    const doc = new jsPDF();
+    const pageW = doc.internal.pageSize.getWidth();
+    let y = 20;
+
+    const addLine = () => { doc.setDrawColor(74, 124, 89); doc.setLineWidth(0.5); doc.line(14, y, pageW - 14, y); y += 4; };
+    const checkPage = (needed) => { if (y + needed > 270) { doc.addPage(); y = 20; } };
+
+    // Header
+    doc.setFontSize(18); doc.setTextColor(0, 51, 102); doc.text('Relatório Geral de Plantios', 14, y); y += 8;
+    doc.setFontSize(9); doc.setTextColor(100); doc.text(`Gerado em ${new Date().toLocaleDateString('pt-PT')} às ${new Date().toLocaleTimeString('pt-PT')}`, 14, y); y += 8;
+    addLine();
+
+    // Stats
     const totalArea = plantios.reduce((a, p) => a + (p.area || 0), 0);
-    const totalOrcamento = plantios.reduce((a, p) => a + (p.orcamento || 0), 0);
-    const totalInvestimento = plantios.reduce((a, p) => a + (p.plano?.investimento?.total || 0), 0);
+    const totalInvestimento = plantios.reduce((a, p) => a + (p.plano?.investimento?.total || p.orcamento || 0), 0);
     const totalRenda = plantios.reduce((a, p) => a + (p.plano?.producao?.rendaBrutaEstimada || 0), 0);
     const totalLucro = plantios.reduce((a, p) => a + (p.plano?.producao?.lucroEstimado || 0), 0);
-    const porStatus = { planeado: 0, ativo: 0, concluido: 0, cancelado: 0, arquivado: 0 };
-    plantios.forEach(p => { porStatus[p.status] = (porStatus[p.status] || 0) + 1; });
 
-    const htmlContent = `
-<!DOCTYPE html>
-<html lang="pt">
-<head>
-<meta charset="utf-8">
-<title>Relatório Geral - Prognos Agri</title>
-<style>
-  body { font-family: 'Segoe UI', Arial, sans-serif; max-width: 800px; margin: 0 auto; padding: 20px; color: #333; }
-  h1 { color: #003366; border-bottom: 3px solid #4A7C59; padding-bottom: 10px; }
-  h2 { color: #4A7C59; margin-top: 24px; border-left: 4px solid #4A7C59; padding-left: 10px; }
-  table { width: 100%; border-collapse: collapse; margin: 12px 0; font-size: 0.85rem; }
-  th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
-  th { background: #f5f5f5; font-weight: 600; }
-  .stat-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin: 12px 0; }
-  .stat-card { padding: 12px; background: #f8f9fa; border-radius: 8px; text-align: center; }
-  .stat-card .value { font-size: 1.3rem; font-weight: 700; color: #003366; }
-  .stat-card .label { font-size: 0.8rem; color: #666; }
-  @media print { body { padding: 0; } }
-</style>
-</head>
-<body>
-<h1>📊 Relatório Geral de Plantios</h1>
-<p style="color: #666">Gerado em ${new Date().toLocaleDateString('pt-PT')} às ${new Date().toLocaleTimeString('pt-PT')}</p>
+    doc.setFontSize(10); doc.setTextColor(0);
+    doc.setFont(undefined, 'bold'); doc.text(`Total de Plantios: ${plantios.length}`, 14, y); doc.setFont(undefined, 'normal'); y += 6;
+    doc.text(`Área Total: ${totalArea} ha`, pageW / 2, y); y += 6;
+    doc.text(`Investimento Total: ${Number(totalInvestimento).toLocaleString()} Kz`, 14, y); y += 6;
+    doc.text(`Renda Bruta: ${Number(totalRenda).toLocaleString()} Kz`, pageW / 2, y); y += 6;
+    doc.text(`Lucro Estimado: ${Number(totalLucro).toLocaleString()} Kz`, 14, y); y += 8;
+    addLine();
 
-<div class="stat-grid">
-  <div class="stat-card"><div class="value">${plantios.length}</div><div class="label">Total de Plantios</div></div>
-  <div class="stat-card"><div class="value">${totalArea} ha</div><div class="label">Área Total</div></div>
-  <div class="stat-card"><div class="value">${Number(totalOrcamento || totalInvestimento).toLocaleString()} Kz</div><div class="label">Investimento Total</div></div>
-  <div class="stat-card"><div class="value">${Number(totalRenda).toLocaleString()} Kz</div><div class="label">Renda Bruta Estimada</div></div>
-  <div class="stat-card"><div class="value">${Number(totalLucro).toLocaleString()} Kz</div><div class="label">Lucro Estimado</div></div>
-  <div class="stat-card"><div class="value">${porStatus.ativo || 0}</div><div class="label">Em Curso</div></div>
-</div>
+    // Table
+    checkPage(30);
+    doc.setFontSize(12); doc.setFont(undefined, 'bold'); doc.setTextColor(0, 51, 102);
+    doc.text('Resumo dos Plantios', 14, y); y += 7;
 
-<h2>📋 Resumo dos Plantios</h2>
-<table>
-  <thead>
-    <tr><th>Nome</th><th>Cultura</th><th>Província</th><th>Área</th><th>Orçamento</th><th>Status</th></tr>
-  </thead>
-  <tbody>
-    ${plantios.map(p => `
-      <tr>
-        <td>${p.nome}</td>
-        <td>${p.cultura}</td>
-        <td>${p.provincia || '-'}</td>
-        <td>${p.area ? p.area + ' ha' : '-'}</td>
-        <td>${p.orcamento ? Number(p.orcamento).toLocaleString() + ' Kz' : '-'}</td>
-        <td>${p.status === 'concluido' ? '✅ Concluído' : p.status === 'cancelado' ? '❌ Cancelado' : p.status === 'arquivado' ? '📦 Arquivado' : '🔄 Em curso'}</td>
-      </tr>
-    `).join('')}
-  </tbody>
-</table>
+    // Header row
+    doc.setFontSize(8); doc.setFont(undefined, 'bold'); doc.setTextColor(255);
+    doc.setFillColor(74, 124, 89); doc.rect(14, y, pageW - 28, 7, 'F');
+    doc.text('Nome', 16, y + 5); doc.text('Cultura', 60, y + 5); doc.text('Província', 90, y + 5);
+    doc.text('Área', 120, y + 5); doc.text('Orçamento', 140, y + 5); doc.text('Status', 170, y + 5);
+    y += 7;
 
-${deteccoes.length ? `
-<h2>🐛 Deteções de Pragas</h2>
-<table>
-  <thead><tr><th>Data</th><th>Pragas Detetadas</th><th>Nível de Risco</th></tr></thead>
-  <tbody>
-    ${deteccoes.slice(0, 20).map(d => `
-      <tr>
-        <td>${d.timestamp ? new Date(d.timestamp).toLocaleDateString('pt-PT') : '-'}</td>
-        <td>${d.total_count || d.detections?.length || 0}</td>
-        <td>${d.impact?.nivel_risco || d.analysis?.level || '-'}</td>
-      </tr>
-    `).join('')}
-  </tbody>
-</table>
-` : ''}
+    doc.setFont(undefined, 'normal'); doc.setTextColor(0);
+    plantios.forEach((p, i) => {
+      checkPage(7);
+      if (i % 2 === 0) { doc.setFillColor(245, 245, 245); doc.rect(14, y - 4, pageW - 28, 6, 'F'); }
+      doc.text(p.nome || '-', 16, y);
+      doc.text(p.cultura || '-', 60, y);
+      doc.text(p.provincia || '-', 90, y);
+      doc.text(p.area ? p.area + ' ha' : '-', 120, y);
+      doc.text(p.orcamento ? Number(p.orcamento).toLocaleString() : '-', 140, y);
+      const st = p.status === 'concluido' ? 'Concluído' : p.status === 'cancelado' ? 'Cancelado' : p.status === 'arquivado' ? 'Arquivado' : 'Em curso';
+      doc.text(st, 170, y);
+      y += 6;
+    });
+    y += 6;
+    addLine();
 
-<div style="margin-top: 30px; padding-top: 10px; border-top: 2px solid #4A7C59; font-size: 0.8rem; color: #999; text-align: center">
-  Prognos Agri 2.0 — Relatório gerado automaticamente
-</div>
-</body></html>`;
+    // Footer
+    y = 270;
+    doc.setFontSize(7); doc.setTextColor(150);
+    doc.text('Prognos Agri 2.0 — Relatório gerado automaticamente', pageW / 2, y, { align: 'center' });
 
-    const printWindow = window.open('', '_blank');
-    printWindow.document.write(htmlContent);
-    printWindow.document.close();
-    printWindow.focus();
-    setTimeout(() => { printWindow.print(); }, 500);
+    doc.save(`Relatorio_Plantios_${new Date().toISOString().slice(0, 10)}.pdf`);
   };
 
   if (loading) {
