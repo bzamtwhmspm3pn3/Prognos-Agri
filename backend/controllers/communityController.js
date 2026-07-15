@@ -166,7 +166,7 @@ const criarGrupo = async (req, res, next) => {
       nome: nome.trim(),
       descricao: descricao || '',
       categoria: categoria || 'geral',
-      tipo: 'privado',
+      tipo: tipo || 'privado',
       conviteCodigo: crypto.randomBytes(4).toString('hex'),
       criadorId: req.userId,
       membros: [{ usuarioId: req.userId, cargo: 'admin' }]
@@ -180,26 +180,6 @@ const criarGrupo = async (req, res, next) => {
     });
 
     res.status(201).json({ success: true, data: grupo });
-  } catch (error) {
-    next(error);
-  }
-};
-
-const entrarGrupo = async (req, res, next) => {
-  try {
-    const grupo = await Group.findById(req.params.id);
-    if (!grupo) {
-      return res.status(404).json({ success: false, message: 'Grupo não encontrado' });
-    }
-
-    if (grupo.membros.some(m => m.usuarioId.toString() === req.userId.toString())) {
-      return res.json({ success: true, message: 'Já és membro deste grupo' });
-    }
-
-    grupo.membros.push({ usuarioId: req.userId, cargo: 'membro' });
-    await grupo.save();
-
-    res.json({ success: true, data: grupo });
   } catch (error) {
     next(error);
   }
@@ -427,7 +407,6 @@ module.exports = {
   alterarCargo,
   atualizarGrupo,
   eliminarGrupo,
-  entrarGrupo,
   enviarMensagem,
   listarMensagens,
   getMensagensNaoLidas,

@@ -47,7 +47,13 @@ exports.detectFromImage = async (req, res, next) => {
         score: 50,
         recommendations: ['Monitorar área afetada']
       },
-      location: req.body.location ? JSON.parse(req.body.location) : null,
+      location: (() => {
+        try {
+          return req.body.location ? JSON.parse(req.body.location) : null;
+        } catch {
+          return null;
+        }
+      })(),
       notes: req.body.notes
     });
 

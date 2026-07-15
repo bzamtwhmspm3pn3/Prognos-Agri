@@ -15,14 +15,6 @@ export default function Chatbot() {
   const [sessaoAtiva, setSessaoAtiva] = useState(null);
   const messagesEndRef = useRef(null);
 
-  useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [mensagens]);
-
-  useEffect(() => {
-    carregarSessoes();
-  }, []);
-
   const carregarSessoes = async () => {
     try {
       const res = await getHistorico();
@@ -31,6 +23,14 @@ export default function Chatbot() {
       console.error('Erro ao carregar histórico:', err);
     }
   };
+
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [mensagens]);
+
+  useEffect(() => {
+    carregarSessoes();
+  }, []);
 
   const sugestoes = [
     'Como detectar pragas?',

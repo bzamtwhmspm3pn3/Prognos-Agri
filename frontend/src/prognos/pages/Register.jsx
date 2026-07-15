@@ -40,7 +40,7 @@ export default function Register() {
       });
       if (result.success) {
         login(result.user, result.token);
-        navigate('/dashboard');
+        navigate('/app/dashboard');
       }
     } catch (err) {
       setError(err.response?.data?.message || 'Erro ao criar conta');

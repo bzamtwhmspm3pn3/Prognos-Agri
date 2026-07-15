@@ -127,13 +127,12 @@ const activatePlan = async (req, res) => {
       return res.status(404).json({ success: false, message: 'Perfil não encontrado' });
     }
 
-    const ativado = profile.ativarProduto(req.body.codigo);
-    if (!ativado) {
+    try {
+      await profile.ativarProduto(req.body.codigo);
+      res.json({ success: true, message: 'Produto activado com sucesso', data: profile });
+    } catch (err) {
       return res.status(400).json({ success: false, message: 'Código de activação inválido' });
     }
-
-    await profile.save();
-    res.json({ success: true, message: 'Produto activado com sucesso', data: profile });
   } catch (error) {
     console.error('Erro activatePlan:', error);
     res.status(500).json({ success: false, message: 'Erro ao activar produto' });

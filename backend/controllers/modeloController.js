@@ -1,4 +1,5 @@
 // controllers/modeloController.js
+const mongoose = require('mongoose');
 const Modelo = require('../models/modelo');
 const User = require('../models/user');
 
@@ -104,6 +105,13 @@ const eliminarModelo = async (req, res, next) => {
     const { userId, modeloId } = req.params;
 
     const modelo = await Modelo.findOne({ _id: modeloId, userId });
+    
+    if (!modelo) {
+      return res.status(404).json({
+        success: false,
+        message: 'Modelo não encontrado'
+      });
+    }
     
     if (!modelo.arquivado) {
       return res.status(400).json({

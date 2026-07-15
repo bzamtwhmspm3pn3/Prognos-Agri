@@ -85,9 +85,8 @@ export default function Community() {
     return () => {
       offNewMessage();
       offApproved();
-      if (chatGroup) leaveGrupo(chatGroup._id);
     };
-  }, [carregarDados, carregarMensagens, chatGroup]);
+  }, []);
 
   useEffect(() => {
     if (chatGroup?._id) {

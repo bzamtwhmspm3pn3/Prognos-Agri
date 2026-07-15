@@ -33,11 +33,13 @@ const getStatus = async (req, res) => {
 
     const agora = Date.now();
     const leituras = sensores.map(s => {
-      if (!s.ultimaLeitura || agora - new Date(s.ultimaLeitura).getTime() > (s.config.intervaloLeitura || 5) * 1000) {
+      const ultimaLeituraTime = s.leituras.length > 0
+        ? new Date(s.leituras[s.leituras.length - 1].timestamp).getTime()
+        : 0;
+      if (!ultimaLeituraTime || agora - ultimaLeituraTime > (s.config.intervaloLeitura || 5) * 1000) {
         const { valor, unidade } = simularLeitura(s);
         s.leituras.push({ valor, timestamp: new Date() });
         if (s.leituras.length > 1440) s.leituras.shift();
-        s.ultimaLeitura = valor;
       }
       return s;
     });

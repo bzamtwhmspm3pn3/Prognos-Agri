@@ -5,6 +5,11 @@ export const criarPlantio = async (dados) => {
   return response.data;
 };
 
+export const salvarPlanoCompleto = async (dados) => {
+  const response = await api.post('/plantio/salvar-plano', dados);
+  return response.data;
+};
+
 export const listarPlantios = async (params = {}) => {
   const response = await api.get('/plantio', { params });
   return response.data;
@@ -32,6 +37,11 @@ export const mudarStatus = async (id, status) => {
 
 export const perguntarIA = async (dados) => {
   const response = await api.post('/plantio/ia/perguntar', dados);
+  return response.data;
+};
+
+export const planearCompleto = async (dados) => {
+  const response = await api.post('/plantio/ia/planear-completo', dados);
   return response.data;
 };
 

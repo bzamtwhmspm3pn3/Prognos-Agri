@@ -4,11 +4,12 @@ import cv2
 import numpy as np
 import os
 import logging
+import gc
 
 try:
     import torch
     torch.set_num_threads(1)
-except:
+except ImportError:
     pass
 
 logger = logging.getLogger(__name__)
@@ -25,25 +26,25 @@ class PestDetector:
             logger.error(f"❌ Erro ao carregar modelo: {e}")
             self.model = None
         
-        # Classes específicas para pragas agrícolas
+        # Classes do COCO que representam pragas/ameaças agrícolas
         self.allowed_classes = {
             14: "bird",      # Pássaro
-            15: "rat",       # Ratazana
-            16: "mouse",     # Camundongo
+            15: "cat",       # Gato (pode caçar pássaros/pequenos animais)
+            16: "dog",       # Cão (pode perturbar gado/colheitas)
         }
         
         # Mapeamento para português
         self.portuguese_names = {
             "bird": "Pássaro",
-            "rat": "Ratazana",
-            "mouse": "Camundongo"
+            "cat": "Gato",
+            "dog": "Cão"
         }
         
         # Valores de impacto (ajusta conforme a realidade angolana)
         self.impact_matrix = {
             "bird": 15000,
-            "rat": 35000,
-            "mouse": 8000,
+            "cat": 8000,
+            "dog": 12000,
         }
         
         # Configurações de deteção
@@ -132,8 +133,14 @@ class PestDetector:
             return image, [], False
         
         try:
-            # Reduzir resolução para streaming (mais rápido)
-            small_image = cv2.resize(image, (320, 320))
+            # Reduzir resolução para streaming (mais rápido) preservando aspecto
+            h, w = image.shape[:2]
+            if max(h, w) > 320:
+                scale = 320 / max(h, w)
+                new_w, new_h = int(w * scale), int(h * scale)
+                small_image = cv2.resize(image, (new_w, new_h))
+            else:
+                small_image = image.copy()
             
             results = self.model(
                 small_image, 
@@ -154,11 +161,11 @@ class PestDetector:
                     cls = int(box.cls[0])
                     confidence = float(box.conf[0])
                     
-                    if cls in self.allowed_classes:
+                    if cls in self.allowed_classes and confidence >= conf_threshold:
                         x1, y1, x2, y2 = box.xyxy[0].tolist()
                         # Escalar de volta para o tamanho original
-                        scale_x = image.shape[1] / 320
-                        scale_y = image.shape[0] / 320
+                        scale_x = image.shape[1] / small_image.shape[1]
+                        scale_y = image.shape[0] / small_image.shape[0]
                         
                         x1 = int(x1 * scale_x)
                         y1 = int(y1 * scale_y)

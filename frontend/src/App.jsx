@@ -22,7 +22,6 @@ import RelatoriosColheitaPage from './prognos/pages/RelatoriosColheitaPage';
 import HistoricoOcorrenciasPage from './prognos/pages/HistoricoOcorrenciasPage';
 import IrrigacaoPage from './prognos/pages/IrrigacaoPage';
 import GestaoPlantioPage from './prognos/pages/GestaoPlantioPage';
-import './theme.css';
 
 function PrivateRoute({ children }) {
   const { isAuthenticated } = usePrognos();

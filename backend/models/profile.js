@@ -27,30 +27,27 @@ const profileSchema = new mongoose.Schema({
   },
   identificacao: {
     type: String,
-    required: [true, "Identificação é obrigatória"],
     unique: true,
-    trim: true
+    sparse: true,
+    trim: true,
+    default: ''
   },
   tipoIdentificacao: {
     type: String,
     enum: ["BI", "NIF", "PASSAPORTE"],
-    required: [true, "Tipo de identificação é obrigatório"]
+    default: 'BI'
   },
   dataNascimento: {
     type: Date,
-    required: function() {
-      return this.tipo === "individual";
-    }
+    default: null
   },
   dataFundacao: {
     type: Date,
-    required: function() {
-      return this.tipo === "organizacao";
-    }
+    default: null
   },
   telefone: {
     type: String,
-    required: [true, "Telefone é obrigatório"]
+    default: ''
   },
   
   // ============ NOVOS CAMPOS ============
@@ -79,7 +76,7 @@ const profileSchema = new mongoose.Schema({
     },
     tema: { 
       type: String, 
-      enum: ["auto", "claro", "escuro"],
+      enum: ["auto", "light", "dark"],
       default: "auto"
     },
     idioma: { 

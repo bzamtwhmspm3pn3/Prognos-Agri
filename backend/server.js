@@ -26,6 +26,7 @@ const weatherRoutes = require('./routes/weather');
 const plantioRoutes = require('./routes/plantio');
 
 const mercadoYangueProxy = require('./routes/mercadoYangueProxy');
+const { protect } = require('./middleware/auth');
 const errorHandler = require("./middleware/errorHandler");
 
 const app = express();
@@ -152,7 +153,7 @@ app.use('/api/rastreabilidade', rastreabilidadeRoutes);
 app.use('/api/irrigacao', irrigacaoRoutes);
 app.use('/api/weather', weatherRoutes);
 app.use('/api/plantio', plantioRoutes);
-app.use('/api/mercado-yangue', mercadoYangueProxy);
+app.use('/api/mercado-yangue', protect, mercadoYangueProxy);
 
 app.get("/", (req, res) => {
   res.send(`

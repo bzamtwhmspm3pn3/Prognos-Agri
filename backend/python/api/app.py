@@ -9,6 +9,7 @@ import logging
 import time
 import os
 import sys
+import gc
 
 # Adicionar caminho para importar o detector
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -75,12 +76,11 @@ async def health():
 @app.post("/detect")
 async def detect(file: UploadFile = File(...)):
     start_time = time.time()
-    import gc
     
     if not detector:
         raise HTTPException(status_code=503, detail="Detector não inicializado")
     
-    if file.size > 10 * 1024 * 1024:
+    if file.size is not None and file.size > 10 * 1024 * 1024:
         raise HTTPException(status_code=400, detail="Ficheiro muito grande (máx 10MB)")
     
     allowed_types = ["image/jpeg", "image/png", "image/webp"]
@@ -106,19 +106,6 @@ async def detect(file: UploadFile = File(...)):
         
         gc.collect()
         
-        if not detections:
-            logger.info("Nenhuma praga detectada pela IA, a usar dados simulados para demonstração")
-            detections = [
-                {"class": "locust", "class_pt": "Gafanhoto", "confidence": 0.92},
-                {"class": "bird", "class_pt": "Pássaro", "confidence": 0.78}
-            ]
-            impact = {
-                "total_loss_kz": 250000,
-                "total_loss_usd": 271.74,
-                "nivel_risco": "MÉDIO",
-                "breakdown": {}
-            }
-        
         process_time = (time.time() - start_time) * 1000
         
         return {
@@ -129,27 +116,12 @@ async def detect(file: UploadFile = File(...)):
             "processing_time_ms": round(process_time, 2),
             "timestamp": time.time()
         }
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Erro na deteção: {e}")
         gc.collect()
-        logger.info("A usar dados simulados como fallback após erro")
-        return {
-            "success": True,
-            "detections": [
-                {"class": "locust", "class_pt": "Gafanhoto", "confidence": 0.92},
-                {"class": "bird", "class_pt": "Pássaro", "confidence": 0.78}
-            ],
-            "impact": {
-                "total_loss_kz": 250000,
-                "total_loss_usd": 271.74,
-                "nivel_risco": "MÉDIO",
-                "breakdown": {}
-            },
-            "total_count": 2,
-            "processing_time_ms": round((time.time() - start_time) * 1000, 2),
-            "timestamp": time.time(),
-            "modoSimulacao": True
-        }
+        raise HTTPException(status_code=500, detail=f"Erro na deteção: {str(e)}")
 
 @app.get("/model-info")
 async def model_info():

@@ -2,12 +2,18 @@ const express = require('express');
 const router = express.Router();
 const multer = require('multer');
 const path = require('path');
+const fs = require('fs');
 const { protect } = require('../middleware/auth');
 const communityController = require('../controllers/communityController');
 
+const chatDir = path.join(__dirname, '..', 'uploads', 'chat');
+if (!fs.existsSync(chatDir)) {
+  fs.mkdirSync(chatDir, { recursive: true });
+}
+
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
-    cb(null, path.join(__dirname, '..', 'uploads', 'chat'));
+    cb(null, chatDir);
   },
   filename: (req, file, cb) => {
     const ext = path.extname(file.originalname);
@@ -18,10 +24,13 @@ const upload = multer({
   storage,
   limits: { fileSize: 10 * 1024 * 1024 },
   fileFilter: (req, file, cb) => {
-    const allowed = /jpeg|jpg|png|gif|webp|pdf|doc|docx/;
-    const extOk = allowed.test(path.extname(file.originalname).toLowerCase());
-    const mimeOk = allowed.test(file.mimetype.split('/')[1]);
-    cb(null, extOk || mimeOk);
+    const allowedExts = /\.(jpeg|jpg|png|gif|webp|pdf|doc|docx)$/i;
+    const allowedMimes = /^(image\/(jpeg|jpg|png|gif|webp)|application\/(pdf|msword|vnd\.openxmlformats-officedocument\.wordprocessingml\.document))$/;
+    if (allowedExts.test(path.extname(file.originalname)) && allowedMimes.test(file.mimetype)) {
+      cb(null, true);
+    } else {
+      cb(new Error('Tipo de ficheiro não permitido'));
+    }
   }
 });
 

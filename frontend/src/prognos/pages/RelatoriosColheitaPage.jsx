@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import RelatoriosColheita from '../../components/AgroOkuvanja/RelatoriosColheita';
 import { useIntegracao } from '../contexts/IntegracaoContext';
 import { Loader, AlertCircle } from 'lucide-react';
+import { deteccaoApi } from '../../services/deteccaoApi';
 
 export default function RelatoriosColheitaPage() {
   const [deteccoes, setDeteccoes] = useState([]);

@@ -1,14 +1,8 @@
-﻿import React, { useState, useContext, useEffect } from 'react';
-import { AuthContext } from './AuthContext';
+﻿import React, { useState, useEffect } from 'react';
 
 const AbaAutenticacao = () => {
-  const { login, inicializarAuth } = useContext(AuthContext);
+  useEffect(() => {}, []);
 
-  useEffect(() => {
-    inicializarAuth(); // carrega usuário/token do localStorage se existir
-  }, []);
-
-  // estados de login/registro
   const [modo, setModo] = useState('login');
   const [usuario, setUsuario] = useState('');
   const [senha, setSenha] = useState('');
@@ -32,9 +26,6 @@ const AbaAutenticacao = () => {
         setLoading(false);
         return;
       }
-
-      // ⚡ Chamar login do contexto com usuário e token
-      login({ usuario: data.usuario, token: data.token });
 
       setLoading(false);
     } catch {

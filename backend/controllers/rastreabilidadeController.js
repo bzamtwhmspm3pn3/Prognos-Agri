@@ -5,6 +5,10 @@ const registarProducao = async (req, res, next) => {
   try {
     const { produto, talhao, coordenadas, quantidade, unidade, qualidade } = req.body;
 
+    if (!produto || !produto.nome) {
+      return res.status(400).json({ success: false, message: 'Produto e nome são obrigatórios' });
+    }
+
     const codigoRastreio = `PA-${Date.now().toString(36).toUpperCase()}-${uuidv4().substring(0, 6).toUpperCase()}`;
 
     const registo = new Rastreabilidade({
