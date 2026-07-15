@@ -7,6 +7,8 @@ import {
   Calendar, MapPin, DollarSign, Trash2, Edit3, Archive, Ban, FileText, Camera, Eye
 } from 'lucide-react';
 import { jsPDF } from 'jspdf';
+import autoTable from 'jspdf-autotable';
+import html2canvas from 'html2canvas';
 import PrognosCard from '../components/PrognosCard';
 import * as plantioService from '../../services/plantioService';
 
@@ -125,6 +127,7 @@ export default function GestaoPlantioPage() {
   const [showEdit, setShowEdit] = useState(false);
   const [editForm, setEditForm] = useState({});
   const [showPlanoDetalhes, setShowPlanoDetalhes] = useState(false);
+  const [exportandoPDF, setExportandoPDF] = useState(false);
 
   const carregarPlantios = useCallback(async () => {
     try {
@@ -283,135 +286,249 @@ export default function GestaoPlantioPage() {
     }
   };
 
-  const exportarPDF = () => {
+  const exportarPDF = async () => {
     if (!plantioAtivo) return;
-    const p = plantioAtivo;
-    const plano = p.plano || {};
-    const inv = plano.investimento || {};
-    const prod = plano.producao || {};
-    const capH = plano.capitalHumano || {};
-    const cronograma = plano.cronograma || [];
-    const riscos = plano.riscos || [];
+    setExportandoPDF(true);
+    try {
+      await new Promise(r => setTimeout(r, 300));
 
-    const doc = new jsPDF();
-    const pageW = doc.internal.pageSize.getWidth();
-    let y = 20;
+      // Capturar gráficos do DOM
+      const chartEls = document.querySelectorAll('[data-report-chart]');
+      const chartImages = {};
+      for (const el of chartEls) {
+        const key = el.getAttribute('data-report-chart');
+        try {
+          const canvas = await html2canvas(el, { backgroundColor: '#ffffff', scale: 2, useCORS: true, logging: false });
+          chartImages[key] = canvas.toDataURL('image/png');
+        } catch { chartImages[key] = null; }
+      }
 
-    const addLine = () => { doc.setDrawColor(74, 124, 89); doc.setLineWidth(0.5); doc.line(14, y, pageW - 14, y); y += 4; };
-    const checkPage = (needed) => { if (y + needed > 270) { doc.addPage(); y = 20; } };
+      const p = plantioAtivo;
+      const plano = p.plano || {};
+      const inv = plano.investimento || {};
+      const prod = plano.producao || {};
+      const capH = plano.capitalHumano || {};
+      const cronograma = plano.cronograma || [];
+      const riscos = plano.riscos || [];
 
-    // Header
-    doc.setFontSize(18); doc.setTextColor(0, 51, 102); doc.text('Relatório de Plantio', 14, y); y += 8;
-    doc.setFontSize(9); doc.setTextColor(100); doc.text(`Gerado em ${new Date().toLocaleDateString('pt-PT')} às ${new Date().toLocaleTimeString('pt-PT')}`, 14, y); y += 8;
-    addLine();
+      const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+      const pw = doc.internal.pageSize.getWidth();
+      const ph = doc.internal.pageSize.getHeight();
+      const m = 20;
+      let y = 25;
 
-    // Info
-    doc.setFontSize(11); doc.setTextColor(0); doc.setFont(undefined, 'bold');
-    doc.text(`Nome: ${p.nome || '-'}`, 14, y); y += 6;
-    doc.setFont(undefined, 'normal');
-    doc.text(`Cultura: ${p.cultura || '-'}`, 14, y); doc.text(`Área: ${p.area ? p.area + ' ha' : '-'}`, pageW / 2, y); y += 6;
-    doc.text(`Província: ${p.provincia || '-'}`, 14, y); doc.text(`Município: ${p.municipio || '-'}`, pageW / 2, y); y += 6;
-    doc.text(`Orçamento: ${p.orcamento ? Number(p.orcamento).toLocaleString() + ' Kz' : '-'}`, 14, y);
-    doc.text(`Status: ${p.status === 'concluido' ? 'Concluído' : p.status === 'cancelado' ? 'Cancelado' : 'Em curso'}`, pageW / 2, y); y += 8;
-    addLine();
+      const GREEN = [74, 124, 89];
+      const DARK = [25, 35, 45];
+      const GRAY = [100, 116, 139];
+      const LIGHT_BG = [245, 248, 245];
 
-    // Fases
-    checkPage(30);
-    doc.setFontSize(12); doc.setFont(undefined, 'bold'); doc.setTextColor(0, 51, 102);
-    doc.text('Progresso das Fases', 14, y); y += 7;
-    doc.setFontSize(9); doc.setFont(undefined, 'normal'); doc.setTextColor(0);
-    (p.fases || []).forEach(f => {
-      checkPage(8);
-      const st = f.status === 'concluido' ? 'Concluído' : f.status === 'em_andamento' ? 'Em andamento' : f.status === 'pulado' ? 'Pulado' : 'Pendente';
-      doc.text(`${st === 'Concluído' ? '[x]' : '[ ]'} ${f.nome}${f.observacoes ? ' - ' + f.observacoes : ''}`, 18, y);
-      y += 6;
-    });
-    y += 4;
+      const fN = (v) => { if (v == null) return '0,00'; const n = Number(v); return isNaN(n) ? '0,00' : n.toLocaleString('pt-AO', { minimumFractionDigits: 2 }); };
+      const fI = (v) => { if (v == null) return '0'; const n = Number(v); return isNaN(n) ? '0' : n.toLocaleString('pt-AO'); };
+      const checkPage = (sp = 20) => { if (y + sp > ph - 15) { doc.addPage(); y = 25; } };
 
-    // Investimento
-    if (inv.total) {
-      checkPage(40);
-      doc.setFontSize(12); doc.setFont(undefined, 'bold'); doc.setTextColor(0, 51, 102);
-      doc.text('Investimento', 14, y); y += 7;
-      doc.setFontSize(9); doc.setFont(undefined, 'normal'); doc.setTextColor(0);
-      const items = [
-        ['Sementes', inv.sementes], ['Fertilizantes', inv.fertilizantes], ['Defensivos', inv.defensivos],
-        ['Mão de obra', inv.maoObra], ['Maquinário', inv.maquinario], ['Imprevistos', inv.imprevistos]
-      ];
-      items.forEach(([label, val]) => {
-        if (val) { checkPage(6); doc.text(`${label}: ${Number(val).toLocaleString()} Kz`, 18, y); y += 6; }
+      const sec = (title, num) => {
+        checkPage(18); y += 4;
+        doc.setFillColor(...GREEN); doc.rect(m - 3, y - 4, 3, 11, 'F');
+        doc.setFontSize(13); doc.setFont('helvetica', 'bold'); doc.setTextColor(...GREEN);
+        doc.text(`${num}. ${title}`, m, y + 2); y += 8;
+        doc.setDrawColor(...GREEN); doc.setLineWidth(0.3); doc.line(m, y, pw - m, y); y += 6;
+        doc.setFontSize(10); doc.setFont('helvetica', 'normal'); doc.setTextColor(...DARK);
+      };
+
+      const tbl = (head, body, opts = {}) => {
+        checkPage(30);
+        autoTable(doc, {
+          startY: y, head: [head], body, theme: 'striped',
+          headStyles: { fillColor: opts.headColor || GREEN, textColor: [255, 255, 255], fontStyle: 'bold', fontSize: 9, halign: 'left' },
+          bodyStyles: { fontSize: 8, textColor: DARK, cellPadding: 3 },
+          alternateRowStyles: { fillColor: [248, 249, 250] },
+          columnStyles: opts.columns || {},
+          margin: { left: m, right: m },
+          ...opts.tableOptions
+        });
+        y = doc.lastAutoTable.finalY + 8;
+      };
+
+      const addChartImg = (key, w = 160, h = 65) => {
+        if (!chartImages[key]) return;
+        checkPage(h + 10);
+        doc.addImage(chartImages[key], 'PNG', (pw - w) / 2, y, w, h);
+        y += h + 8;
+      };
+
+      const textBlock = (text) => {
+        if (!text) return;
+        const lines = doc.splitTextToSize(text, pw - 2 * m);
+        for (const line of lines) { checkPage(5); doc.text(line, m, y); y += 5; }
+      };
+
+      // =============================================
+      // CAPA
+      // =============================================
+      doc.setFillColor(245, 248, 245); doc.rect(0, 0, pw, ph, 'F');
+      doc.setFillColor(...GREEN); doc.rect(0, 0, pw, 6, 'F');
+
+      // Logo circle
+      doc.setFillColor(...GREEN); doc.circle(pw / 2, 55, 20, 'F');
+      doc.setFillColor(255, 255, 255); doc.circle(pw / 2, 55, 14, 'F');
+      doc.setFillColor(...GREEN); doc.setFontSize(18); doc.setFont('helvetica', 'bold');
+      doc.text('PA', pw / 2, 59, { align: 'center' });
+
+      doc.setFontSize(26); doc.setFont('helvetica', 'bold'); doc.setTextColor(...DARK);
+      doc.text('RELATORIO DE PLANTIO', pw / 2, 100, { align: 'center' });
+
+      doc.setDrawColor(...GREEN); doc.setLineWidth(0.8); doc.line(50, 110, pw - 50, 110);
+
+      doc.setFontSize(16); doc.setFont('helvetica', 'normal'); doc.setTextColor(...GREEN);
+      doc.text(p.nome || 'Plantio', pw / 2, 125, { align: 'center' });
+
+      doc.setFontSize(11); doc.setTextColor(...GRAY);
+      doc.text(`${(p.cultura || '').toUpperCase()} | ${p.provincia || ''}${p.municipio ? ', ' + p.municipio : ''}`, pw / 2, 140, { align: 'center' });
+      doc.text(`Area: ${p.area ? p.area + ' ha' : '-'} | Orcamento: ${p.orcamento ? fN(p.orcamento) + ' Kz' : '-'}`, pw / 2, 152, { align: 'center' });
+
+      const statusText = p.status === 'concluido' ? 'CONCLUIDO' : p.status === 'cancelado' ? 'CANCELADO' : p.status === 'arquivado' ? 'ARQUIVADO' : 'EM CURSO';
+      doc.setFontSize(12); doc.setFont('helvetica', 'bold');
+      doc.setTextColor(p.status === 'concluido' ? GREEN : p.status === 'cancelado' ? [220, 38, 38] : [59, 130, 246]);
+      doc.text(statusText, pw / 2, 168, { align: 'center' });
+
+      doc.setFontSize(9); doc.setFont('helvetica', 'normal'); doc.setTextColor(...GRAY);
+      doc.text(`Prognos Agri 2.0`, pw / 2, 190, { align: 'center' });
+      doc.text(new Date().toLocaleString('pt-PT'), pw / 2, 198, { align: 'center' });
+
+      // =============================================
+      // PAGINA 2+
+      // =============================================
+      doc.addPage(); y = 25;
+
+      // 1. RESUMO EXECUTIVO
+      sec('RESUMO EXECUTIVO', '1');
+      const progresso = Math.round((p.fases.filter(f => f.status === 'concluido' || f.status === 'pulado').length / p.fases.length) * 100);
+      const concluidas = p.fases.filter(f => f.status === 'concluido').length;
+      const andamento = p.fases.filter(f => f.status === 'em_andamento').length;
+      const pendentes = p.fases.filter(f => f.status === 'pendente').length;
+
+      tbl(['Indicador', 'Valor'], [
+        ['Cultura', p.cultura || '-'],
+        ['Provencia', p.provincia || '-'],
+        ['Municipio', p.municipio || '-'],
+        ['Area total', `${p.area || 0} ha`],
+        ['Orcamento', `${p.orcamento ? fN(p.orcamento) + ' Kz' : '-'}`],
+        ['Progresso geral', `${progresso}%`],
+        ['Fases concluidas', `${concluidas} de ${p.fases.length}`],
+        ['Fases em andamento', `${andamento}`],
+        ['Fases pendentes', `${pendentes}`],
+        ['Data de inicio', p.dataInicio ? new Date(p.dataInicio).toLocaleDateString('pt-PT') : '-'],
+      ]);
+
+      // 2. RECOMENDACAO DE LOCALIZACAO
+      if (plano.recomendacaoLocalizacao) {
+        sec('RECOMENDACAO DE LOCALIZACAO', '2');
+        textBlock(plano.recomendacaoLocalizacao);
+        y += 4;
+      }
+
+      // 3. PROGRESSO DAS FASES
+      sec('PROGRESSO DAS FASES', plano.recomendacaoLocalizacao ? '3' : '2');
+      const fasesBody = p.fases.map(f => {
+        const st = f.status === 'concluido' ? 'Concluido' : f.status === 'em_andamento' ? 'Em andamento' : f.status === 'pulado' ? 'Pulado' : 'Pendente';
+        return [f.nome, st, f.observacoes || '-', f.recomendacaoIA || '-'];
       });
-      checkPage(8); doc.setFont(undefined, 'bold');
-      doc.text(`TOTAL: ${Number(inv.total).toLocaleString()} Kz`, 18, y); y += 8;
-      doc.setFont(undefined, 'normal');
-    }
-
-    // Produção
-    if (prod.areaTotalHa) {
-      checkPage(30);
-      doc.setFontSize(12); doc.setFont(undefined, 'bold'); doc.setTextColor(0, 51, 102);
-      doc.text('Produção Estimada', 14, y); y += 7;
-      doc.setFontSize(9); doc.setFont(undefined, 'normal'); doc.setTextColor(0);
-      doc.text(`Produtividade: ${prod.produtividadeTonHa || 0} ton/ha`, 18, y); y += 6;
-      doc.text(`Área total: ${prod.areaTotalHa} ha`, 18, y); y += 6;
-      doc.text(`Produção total: ${prod.ProducaoTotalTon || 0} ton`, 18, y); y += 6;
-      doc.text(`Renda bruta: ${Number(prod.rendaBrutaEstimada || 0).toLocaleString()} Kz`, 18, y); y += 6;
-      doc.setFont(undefined, 'bold');
-      doc.text(`Lucro estimado: ${Number(prod.lucroEstimado || 0).toLocaleString()} Kz`, 18, y); y += 8;
-      doc.setFont(undefined, 'normal');
-    }
-
-    // Capital Humano
-    if (capH.total) {
-      checkPage(24);
-      doc.setFontSize(12); doc.setFont(undefined, 'bold'); doc.setTextColor(0, 51, 102);
-      doc.text('Capital Humano', 14, y); y += 7;
-      doc.setFontSize(9); doc.setFont(undefined, 'normal'); doc.setTextColor(0);
-      doc.text(`Permanentes: ${capH.trabalhadoresPermanentes || 0}`, 18, y); y += 6;
-      doc.text(`Sazonais: ${capH.trabalhadoresSazonais || 0}`, 18, y); y += 6;
-      doc.text(`Técnicos: ${capH.tecnicosOperadores || 0}`, 18, y); y += 6;
-      doc.text(`Total: ${capH.total} pessoas`, 18, y); y += 8;
-    }
-
-    // Cronograma
-    if (cronograma.length) {
-      checkPage(20);
-      doc.setFontSize(12); doc.setFont(undefined, 'bold'); doc.setTextColor(0, 51, 102);
-      doc.text('Cronograma', 14, y); y += 7;
-      doc.setFontSize(8); doc.setFont(undefined, 'normal'); doc.setTextColor(0);
-      cronograma.forEach(c => {
-        checkPage(6);
-        const ini = new Date(c.inicio).toLocaleDateString('pt-PT');
-        const fim = new Date(c.fim).toLocaleDateString('pt-PT');
-        doc.text(`${c.atividade} | ${ini} - ${fim} | ${c.dias} dias`, 18, y);
-        y += 5;
+      tbl(['Fase', 'Status', 'Observacoes', 'Recomendacao IA'], fasesBody, {
+        columns: { 0: { cellWidth: 35 }, 1: { cellWidth: 25 }, 2: { cellWidth: 50 }, 3: { cellWidth: 55 } }
       });
-      y += 4;
-    }
 
-    // Riscos
-    if (riscos.length) {
-      checkPage(20);
-      doc.setFontSize(12); doc.setFont(undefined, 'bold'); doc.setTextColor(0, 51, 102);
-      doc.text('Análise de Riscos', 14, y); y += 7;
-      doc.setFontSize(8); doc.setFont(undefined, 'normal'); doc.setTextColor(0);
-      riscos.forEach(r => {
-        checkPage(10);
-        const icon = r.tipo === 'climatico' ? 'Climático' : r.tipo === 'praga' ? 'Praga' : 'Doença';
-        doc.text(`[${icon}] ${r.descricao}`, 18, y); y += 5;
-        doc.setTextColor(100);
-        doc.text(`Mitigação: ${r.mitigacao}`, 22, y); y += 6;
-        doc.setTextColor(0);
-      });
-    }
+      // 4. INVESTIMENTO
+      if (inv.total) {
+        sec('INVESTIMENTO DETALHADO', '4');
+        const invBody = [
+          ['Sementes', `${fN(inv.sementes)} Kz`, '20%'],
+          ['Fertilizantes', `${fN(inv.fertilizantes)} Kz`, '25%'],
+          ['Defensivos', `${fN(inv.defensivos)} Kz`, '10%'],
+          ['Mao de obra', `${fN(inv.maoObra)} Kz`, '25%'],
+          ['Maquinario', `${fN(inv.maquinario)} Kz`, '10%'],
+          ['Imprevistos', `${fN(inv.imprevistos)} Kz`, '10%'],
+          ['TOTAL', `${fN(inv.total)} Kz`, '100%']
+        ].filter(r => r[1] !== '0,00 Kz');
+        tbl(['Item', 'Custo (Kz)', '%'], invBody, {
+          columns: { 1: { halign: 'right' }, 2: { halign: 'right', cellWidth: 25 } },
+          tableOptions: { didParseCell: (data) => { if (data.row.index === invBody.length - 1) { data.cell.styles.fontStyle = 'bold'; data.cell.styles.fillColor = LIGHT_BG; } } }
+        });
+        addChartImg('pie-investimento', 140, 60);
+      }
 
-    // Footer
-    checkPage(12);
-    y = 270;
-    doc.setFontSize(7); doc.setTextColor(150);
-    doc.text('Prognos Agri 2.0 — Relatório gerado automaticamente', pageW / 2, y, { align: 'center' });
+      // 5. CAPITAL HUMANO
+      if (capH.total) {
+        sec('CAPITAL HUMANO', '5');
+        tbl(['Categoria', 'Quantidade'], [
+          ['Trabalhadores permanentes', fI(capH.trabalhadoresPermanentes)],
+          ['Trabalhadores sazonais', fI(capH.trabalhadoresSazonais)],
+          ['Tecnicos/operadores', fI(capH.tecnicosOperadores)],
+          ['TOTAL', fI(capH.total)]
+        ]);
+      }
 
-    doc.save(`Plantio_${(p.nome || 'relatorio').replace(/\s+/g, '_')}_${new Date().toISOString().slice(0, 10)}.pdf`);
+      // 6. PRODUCAO ESTIMADA
+      if (prod.areaTotalHa) {
+        sec('PRODUCAO ESTIMADA', '6');
+        tbl(['Indicador', 'Valor'], [
+          ['Produtividade', `${prod.produtividadeTonHa || 0} ton/ha`],
+          ['Area total cultivada', `${prod.areaTotalHa} ha`],
+          ['Producao total estimada', `${prod.ProducaoTotalTon || 0} ton`],
+          ['Renda bruta estimada', `${fN(prod.rendaBrutaEstimada)} Kz`],
+          ['Lucro estimado', `${fN(prod.lucroEstimado)} Kz`],
+        ]);
+        addChartImg('bar-projecao', 150, 60);
+      }
+
+      // 7. CRONOGRAMA
+      if (cronograma.length) {
+        sec('CRONOGRAMA DE ATIVIDADES', '7');
+        const cronBody = cronograma.map(c => [
+          c.atividade,
+          new Date(c.inicio).toLocaleDateString('pt-PT'),
+          new Date(c.fim).toLocaleDateString('pt-PT'),
+          `${c.dias} dias`
+        ]);
+        tbl(['Atividade', 'Inicio', 'Fim', 'Duracao'], cronBody, {
+          columns: { 3: { halign: 'right', cellWidth: 30 } }
+        });
+        addChartImg('gantt-cronograma', 170, 55);
+      }
+
+      // 8. ANALISE DE RISCOS
+      if (riscos.length) {
+        sec('ANALISE DE RISCOS', '8');
+        const riscosBody = riscos.map(r => {
+          const tipo = r.tipo === 'climatico' ? 'Climatico' : r.tipo === 'praga' ? 'Praga' : 'Doenca';
+          return [tipo, r.descricao, r.mitigacao];
+        });
+        tbl(['Tipo', 'Descricao', 'Mitigacao'], riscosBody, {
+          columns: { 0: { cellWidth: 25 }, 1: { cellWidth: 60 }, 2: { cellWidth: 75 } }
+        });
+      }
+
+      // 9. PRODUCAO REAL (se existir)
+      if (p.producaoReal || p.receitaReal) {
+        sec('RESULTADOS REAIS', '9');
+        tbl(['Indicador', 'Valor'], [
+          ['Producao real', `${p.producaoReal ? fN(p.producaoReal) + ' ton' : '-'}`],
+          ['Receita real', `${p.receitaReal ? fN(p.receitaReal) + ' Kz' : '-'}`],
+        ]);
+      }
+
+      // RODAPE em todas as paginas
+      const pages = doc.internal.getNumberOfPages();
+      for (let i = 1; i <= pages; i++) {
+        doc.setPage(i);
+        doc.setDrawColor(200, 200, 210); doc.setLineWidth(0.3);
+        doc.line(m, ph - 12, pw - m, ph - 12);
+        doc.setFontSize(8); doc.setFont('helvetica', 'italic'); doc.setTextColor(...GRAY);
+        doc.text(`Prognos Agri 2.0`, m, ph - 6);
+        doc.text(`Pagina ${i} de ${pages}`, pw - m, ph - 6, { align: 'right' });
+      }
+
+      doc.save(`Plantio_${(p.nome || 'relatorio').replace(/\s+/g, '_')}_${new Date().toISOString().slice(0, 10)}.pdf`);
+    } catch (e) { console.error('Erro ao gerar PDF:', e); } finally { setExportandoPDF(false); }
   };
 
   const progresso = plantioAtivo
@@ -595,7 +712,7 @@ export default function GestaoPlantioPage() {
                 <strong style={{ color: '#10b981', fontSize: '0.95rem' }}>{Number(p.producao?.lucroEstimado || 0).toLocaleString()} Kz</strong>
               </div>
             </div>
-            <div style={{ marginTop: '12px' }}>
+            <div style={{ marginTop: '12px' }} data-report-chart="bar-projecao-preview">
               <h4 style={{ fontSize: '0.8rem', fontWeight: 600, marginBottom: '8px' }}>Investimento vs Retorno</h4>
               <BarChart data={[
                 { label: 'Investimento', valor: p.investimento?.total || 0, cor: '#3b82f6' },
@@ -728,8 +845,8 @@ export default function GestaoPlantioPage() {
                   <FileText size={14} /> {showPlanoDetalhes ? 'Ocultar' : 'Ver Plano'}
                 </button>
               )}
-              <button className="btn btn-sm btn-ghost" onClick={exportarPDF} title="Exportar PDF">
-                <Download size={14} /> PDF
+              <button className="btn btn-sm btn-ghost" onClick={exportarPDF} title="Exportar PDF" disabled={exportandoPDF}>
+                {exportandoPDF ? <Loader size={14} className="spinner" /> : <Download size={14} />} {exportandoPDF ? 'A gerar...' : 'PDF'}
               </button>
               <button className="btn btn-sm btn-ghost" onClick={() => { setEditForm(plantioAtivo); setShowEdit(true); }} title="Editar">
                 <Edit3 size={14} />
@@ -898,7 +1015,9 @@ export default function GestaoPlantioPage() {
                       </table>
                     </div>
                     <div>
-                      <PieChartCSS data={invItens.map(i => ({ label: i.nome, valor: i.custo, cor: i.cor }))} size={140} />
+                      <div data-report-chart="pie-investimento">
+                        <PieChartCSS data={invItens.map(i => ({ label: i.nome, valor: i.custo, cor: i.cor }))} size={140} />
+                      </div>
                     </div>
                   </div>
                 </PrognosCard>
@@ -945,7 +1064,7 @@ export default function GestaoPlantioPage() {
                         </div>
                       </div>
                       {inv.total ? (
-                        <div style={{ marginTop: '12px' }}>
+                        <div style={{ marginTop: '12px' }} data-report-chart="bar-projecao">
                           <BarChart data={[
                             { label: 'Investimento', valor: inv.total || 0, cor: '#3b82f6' },
                             { label: 'Renda Bruta', valor: prod.rendaBrutaEstimada || 0, cor: '#4A7C59' },
@@ -960,7 +1079,9 @@ export default function GestaoPlantioPage() {
 
               {cronograma.length ? (
                 <PrognosCard title="📅 Cronograma" icon={<Calendar size={18} />}>
-                  <GanttChart tasks={cronograma} />
+                  <div data-report-chart="gantt-cronograma">
+                    <GanttChart tasks={cronograma} />
+                  </div>
                 </PrognosCard>
               ) : null}
 
