@@ -408,6 +408,34 @@ export default function GestaoPlantioPage() {
       const andamento = p.fases.filter(f => f.status === 'em_andamento').length;
       const pendentes = p.fases.filter(f => f.status === 'pendente').length;
 
+      // Alerta de inadequação
+      if (plano.culturaAdequada === false) {
+        checkPage(20);
+        doc.setFillColor(255, 245, 238); doc.rect(m, y - 2, pw - 2 * m, 18, 'F');
+        doc.setDrawColor(239, 68, 68); doc.setLineWidth(0.5); doc.line(m, y - 2, m, y + 16);
+        doc.setFontSize(10); doc.setFont('helvetica', 'bold'); doc.setTextColor(220, 38, 38);
+        doc.text('CULTURA NAO RECOMENDADA PARA ESTA LOCALIZACAO', m + 4, y + 4);
+        doc.setFont('helvetica', 'normal'); doc.setFontSize(8); doc.setTextColor(80, 80, 80);
+        if (plano.motivoAdequacao) textBlock(plano.motivoAdequacao);
+        if (plano.provinciaRecomendada && plano.provinciaRecomendada !== p.provincia) {
+          doc.setFont('helvetica', 'bold'); doc.text(`Provincia recomendada: ${plano.provinciaRecomendada}`, m + 4, y + 12);
+        }
+        if (plano.culturaAlternativa) {
+          doc.setFont('helvetica', 'normal'); doc.text(`Cultura sugerida para ${p.provincia}: ${plano.culturaAlternativa}`, m + 4, y + 16);
+        }
+        y += 22;
+      } else if (plano.culturaAdequada === true && plano.motivoAdequacao) {
+        checkPage(14);
+        doc.setFillColor(240, 248, 240); doc.rect(m, y - 2, pw - 2 * m, 10, 'F');
+        doc.setDrawColor(...GREEN); doc.setLineWidth(0.5); doc.line(m, y - 2, m, y + 8);
+        doc.setFontSize(9); doc.setFont('helvetica', 'bold'); doc.setTextColor(...GREEN);
+        doc.text('CULTURA ADEQUADA PARA ESTA LOCALIZACAO', m + 4, y + 3);
+        y += 12;
+        doc.setFont('helvetica', 'normal'); doc.setTextColor(...DARK);
+        textBlock(plano.motivoAdequacao);
+        y += 4;
+      }
+
       if (plano.resumo) {
         textBlock(plano.resumo);
         y += 4;
@@ -485,7 +513,8 @@ export default function GestaoPlantioPage() {
           ['Produtividade', `${prod.produtividadeTonHa || 0} ton/ha`],
           ['Area total cultivada', `${prod.areaTotalHa} ha`],
           ['Producao total estimada', `${prod.ProducaoTotalTon || 0} ton`],
-          ['Preco estimado por tonelada', prod.precoEstimado ? `${fN(prod.precoEstimado)} Kz/ton` : '-'],
+          ['Preco por kg', prod.precoPorKg ? `${fN(prod.precoPorKg)} Kz/kg` : '-'],
+          ['Preco por tonelada', prod.precoPorTon ? `${fN(prod.precoPorTon)} Kz/ton` : '-'],
           ['Renda bruta estimada', `${fN(prod.rendaBrutaEstimada)} Kz`],
           ['Lucro estimado', `${fN(prod.lucroEstimado)} Kz`],
         ]);
@@ -995,12 +1024,40 @@ export default function GestaoPlantioPage() {
             <div style={{ display: 'grid', gap: '16px', marginTop: '16px' }}>
               {plano.resumo && (
                 <PrognosCard title="📋 Análise do Plano" icon={<FileText size={18} />}>
+                  {plano.culturaAdequada === false && (
+                    <div style={{ padding: '12px', background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.2)', borderRadius: '8px', marginBottom: '12px' }}>
+                      <div style={{ fontWeight: 700, color: '#ef4444', fontSize: '0.9rem', marginBottom: '6px' }}>
+                        ⚠️ Cultura não recomendada para esta localização
+                      </div>
+                      {plano.motivoAdequacao && (
+                        <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '8px' }}>{plano.motivoAdequacao}</p>
+                      )}
+                      {plano.provinciaRecomendada && plano.provinciaRecomendada !== plantioAtivo.provincia && (
+                        <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
+                          <strong>Província recomendada para {plantioAtivo.cultura}:</strong> {plano.provinciaRecomendada}
+                        </div>
+                      )}
+                      {plano.culturaAlternativa && (
+                        <div style={{ fontSize: '0.85rem', color: '#4A7C59', marginTop: '6px', fontWeight: 600 }}>
+                          💡 Cultura sugerida para {plantioAtivo.provincia}: {plano.culturaAlternativa}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                  {plano.culturaAdequada === true && plano.motivoAdequacao && (
+                    <div style={{ padding: '12px', background: 'rgba(74,124,89,0.08)', border: '1px solid rgba(74,124,89,0.2)', borderRadius: '8px', marginBottom: '12px' }}>
+                      <div style={{ fontWeight: 700, color: '#4A7C59', fontSize: '0.9rem', marginBottom: '4px' }}>
+                        ✅ Cultura adequada para esta localização
+                      </div>
+                      <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>{plano.motivoAdequacao}</p>
+                    </div>
+                  )}
                   <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', lineHeight: 1.6 }}>{plano.resumo}</p>
                 </PrognosCard>
               )}
 
               {plano.recomendacaoLocalizacao && (
-                <PrognosCard title="📍 Recomendação de Localização">
+                <PrognosCard title="📍 Análise de Localização">
                   <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', lineHeight: 1.6 }}>{plano.recomendacaoLocalizacao}</p>
                   {plano.municipiosRecomendados?.length > 0 && (
                     <div style={{ marginTop: '12px' }}>
@@ -1083,9 +1140,14 @@ export default function GestaoPlantioPage() {
                         <div style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0', borderBottom: '1px solid var(--border)' }}>
                           <span>Produção total</span><strong>{prod.ProducaoTotalTon || 0} ton</strong>
                         </div>
-                        {prod.precoEstimado ? (
+                        {prod.precoPorKg ? (
                           <div style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0', borderBottom: '1px solid var(--border)' }}>
-                            <span>Preço por tonelada</span><strong>{Number(prod.precoEstimado).toLocaleString()} Kz/ton</strong>
+                            <span>Preço por kg</span><strong>{Number(prod.precoPorKg).toLocaleString()} Kz/kg</strong>
+                          </div>
+                        ) : null}
+                        {prod.precoPorTon ? (
+                          <div style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0', borderBottom: '1px solid var(--border)' }}>
+                            <span>Preço por tonelada</span><strong>{Number(prod.precoPorTon).toLocaleString()} Kz/ton</strong>
                           </div>
                         ) : null}
                         <div style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0', borderBottom: '1px solid var(--border)' }}>

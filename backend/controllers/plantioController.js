@@ -43,6 +43,10 @@ exports.salvarPlanoCompleto = async (req, res, next) => {
       status: 'planeado', progresso: 5,
       plano: {
         resumo: plano?.resumo || '',
+        culturaAdequada: plano?.culturaAdequada !== false,
+        motivoAdequacao: plano?.motivoAdequacao || '',
+        provinciaRecomendada: plano?.provinciaRecomendada || provincia,
+        culturaAlternativa: plano?.culturaAlternativa || '',
         recomendacaoLocalizacao: plano?.localizacao?.recomendacao || '',
         municipiosRecomendados: plano?.localizacao?.municipios || [],
         investimento: {
@@ -70,7 +74,8 @@ exports.salvarPlanoCompleto = async (req, res, next) => {
           produtividadeTonHa: plano?.producao?.produtividade || 0,
           areaTotalHa: Number(area),
           ProducaoTotalTon: plano?.producao?.producaoTotal || 0,
-          precoEstimado: plano?.producao?.precoEstimado || 0,
+          precoPorKg: plano?.producao?.precoPorKg || 0,
+          precoPorTon: plano?.producao?.precoPorTon || 0,
           rendaBrutaEstimada: plano?.producao?.rendaBruta || 0,
           lucroEstimado: plano?.producao?.lucroEstimado || 0
         },
@@ -365,31 +370,80 @@ exports.planearCompleto = async (req, res, next) => {
 
     if (apiKey) {
       try {
-        const prompt = `És um especialista agrícola angolano honesto e realista. Gera um plano completo de plantio com dados realistas para Angola.
+        const prompt = `És um consultor agrícola angolano experiente, honesto e realista. Tens conhecimento profundo sobre solos, clima, e aptidão agrícola de todas as províncias de Angola.
 
-Cultura: ${cultura}
-Província: ${provincia}
+Cultura pedida: ${cultura}
+Província informada: ${provincia}
 Município: ${municipio || 'Não especificado'}
 Área: ${area} hectares
 Orçamento: ${orcamento || 'Não especificado'} Kz
 Data início: ${dataInicio || 'Não especificada'}
 
 REGRAS OBRIGATÓRIAS:
-1. Sé REALISTA. Se a cultura NÃO é adequada para a província/município, indica isso claramente no resumo e nas recomendações. NÃO sejas sempre otimista.
-2. Se o orçamento é insuficiente para a área, indica-o e sugere alternativas mais viáveis.
-3. Produtividade deve refletir condições REAIS de Angola (não valores de países desenvolvidos). Milho em Angola: 0.8-2.5 ton/ha dependendo do manejo. Feijão: 0.5-1.5 ton/ha. Mandioca: 8-15 ton/ha.
-4. Preços devem refletir o mercado angolano real.
-5. Riscos devem ser específicos da região, não genéricos.
-6. O campo "resumo" deve conter uma análise honesta incluindo: adequação do solo/clima, viabilidade económica, alertas se a cultura não for recomendada, e recomendação final (recomendar, desaconselhar, ou recomendar com ressalvas).
-7. Se desaconselha a cultura, explica por que e sugere alternativas.
+
+1. ANÁLISE DE ADEQUAÇÃO DA CULTURA À LOCALIZAÇÃO:
+   - Primeiro, verifica se a cultura "${cultura}" é adequada para a província "${provincia}".
+   - Se SIM (adequada): confirma e detalha os motivos (solo, clima, altitude, pluviosidade).
+   - Se NÃO (inadequada): 
+     a) Explica por que não é adequada (ex: "O Bié tem solos lateríticos e altitude elevada, não ideal para café que prefere solos vulcânicos e altitude 800-1500m").
+     b) Indica a MELHOR província em Angola para essa cultura (ex: "O café é melhor produzido em Huambo, Cunene ou Huíla").
+     c) Se o produtor insistir na mesma província, indica a MELHOR cultura para essa localização.
+   
+2. PARA CADA CULTURA, CONHECE AS PROVÍNCIAS IDEAIS EM ANGOLA:
+   - Café: Huambo, Huíla, Cunene (altitude 800-1500m, solos vulcânicos, 1200-1800mm/ano)
+   - Milho: Luanda, Bengo, Cuanza Norte, Kwanza Sul (adaptável, 800-1200mm/ano)
+   - Feijão: Luanda, Bengo, Cuanza Norte, Icolo e Bengo (solos areno-limados, 800-1200mm/ano)
+   - Mandioca: Uíge, Zaire, Malanje, Cuanza Norte (clima quente-húmido, 1500-2000mm/ano)
+   - Arroz: Cunene, Huíla, Namibe (solos aluviais, irrigação necessária)
+   - Soja: Huambo, Cunene, Benguela (solos férteis, clima temperado)
+   - Sorgo: Huambo, Cunene, Namibe (tolerante à seca)
+   - Batata-doce: Luanda, Bengo, Cuanza Norte (solos arenosos, clima quente)
+   - Amendoim: Luanda, Bengo, Cuanza Norte, Icolo e Bengo (solos arenosos bem drenados)
+   - Tomate: Luanda, Bengo, Cuanza Norte (clima quente, irrigação necessária)
+
+3. PREÇOS REAIS DE MERCADO EM ANGOLA (2024-2025):
+   - Café (graão seco): 800-1500 Kz/kg, 800.000-1.500.000 Kz/ton
+   - Milho: 150-300 Kz/kg, 150.000-300.000 Kz/ton
+   - Feijão: 400-800 Kz/kg, 400.000-800.000 Kz/ton
+   - Mandioca (farinha): 100-200 Kz/kg, 100.000-200.000 Kz/ton
+   - Arroz: 200-400 Kz/kg, 200.000-400.000 Kz/ton
+   - Soja: 250-500 Kz/kg, 250.000-500.000 Kz/ton
+   - Amendoim: 300-600 Kz/kg, 300.000-600.000 Kz/ton
+   - Tomate: 150-350 Kz/kg, 150.000-350.000 Kz/ton
+
+4. PRODUTIVIDADE REALISTA EM ANGOLA (não usar valores de países desenvolvidos):
+   - Café: 0.3-0.8 ton/ha (em Angola, com manejo básico)
+   - Milho: 0.8-2.5 ton/ha (com adubação básica)
+   - Feijão: 0.5-1.5 ton/ha
+   - Mandioca: 8-15 ton/ha
+   - Arroz: 1.5-3.0 ton/ha (com irrigação)
+   - Soja: 1.0-2.0 ton/ha
+   - Amendoim: 0.8-1.5 ton/ha
+
+5. O campo "resumo" deve conter:
+   - Análise honesta da adequação cultura/localização
+   - Se inadequada, indicar a melhor província para a cultura
+   - Se inadequada, sugerir a melhor cultura para a localização informada
+   - Viabilidade económica com o orçamento disponível
+   - Alertas e recomendação final clara
+
+6. O campo "localizacao.recomendacao" deve conter análise detalhada do solo, clima, altitude, pluviosidade da região.
+
+7. Se o orçamento é insuficiente para a área, indica e sugere alternativas (reduzir área, mudar cultura, etc).
+
+8. Riscos devem ser ESPECÍFICOS da região e cultura, não genéricos.
 
 Responde APENAS com JSON válido (sem markdown, sem comentários):
 {
-  "resumo": "Análise honesta e contextualizada do plano. Se a cultura não é adequada, diz-o. Inclui viabilidade económica, alertas, e recomendação final.",
+  "resumo": "Análise honesta e completa. Se a cultura não é adequada para ${provincia}, diz e indica a melhor província. Se inadequada, sugere a melhor cultura para ${provincia}. Inclui viabilidade económica, alertas, recomendação final.",
+  "culturaAdequada": true,
+  "motivoAdequacao": "Explicação detalhada de por que a cultura é ou não adequada",
+  "provinciaRecomendada": "Se a cultura não é adequada para ${provincia}, indica a melhor província. Caso contrário, repete ${provincia}",
+  "culturaAlternativa": "Se a cultura é inadequada, sugere a melhor cultura para ${provincia}. Caso contrário, null",
   "localizacao": {
-    "recomendacao": "Análise realista do solo, clima e condições da região. Se não é favorável, indica isso.",
+    "recomendacao": "Análise detalhada: solo, clima, altitude, pluviosidade, regime de chuvas da região",
     "municipios": [
-      {"nome": "Município X", "justificativa": "solo/clima adequados ou não"}
+      {"nome": "Município X", "justificativa": "por que é adequado ou não"}
     ]
   },
   "investimento": {
@@ -423,7 +477,8 @@ Responde APENAS com JSON válido (sem markdown, sem comentários):
     "unidade": "ton/ha",
     "area": ${area},
     "producaoTotal": 0,
-    "precoEstimado": 0,
+    "precoPorKg": 0,
+    "precoPorTon": 0,
     "rendaBruta": 0,
     "lucroEstimado": 0
   },
@@ -438,9 +493,7 @@ Responde APENAS com JSON válido (sem markdown, sem comentários):
       {"nome": "Doença específica da cultura/região", "icone": "🍄", "mitigacao": "recomendação específica e acionável"}
     ]
   }
-}
-
-Usa dados realistas baseados na cultura, província e área. Preços em Kz angolanos. Produtividade em ton/hectare.`;
+}`;
 
         const response = await axios.post(
           `https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent?key=${apiKey}`,
