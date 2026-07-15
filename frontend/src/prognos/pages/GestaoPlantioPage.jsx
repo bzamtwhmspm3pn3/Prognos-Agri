@@ -123,6 +123,7 @@ export default function GestaoPlantioPage() {
   const [iaFaseResposta, setIaFaseResposta] = useState(null);
   const [showEdit, setShowEdit] = useState(false);
   const [editForm, setEditForm] = useState({});
+  const [showPlanoDetalhes, setShowPlanoDetalhes] = useState(false);
 
   const carregarPlantios = useCallback(async () => {
     try {
@@ -268,6 +269,152 @@ export default function GestaoPlantioPage() {
     } catch (err) {
       console.error('Erro:', err);
     }
+  };
+
+  const handleEliminarPlantio = async (id) => {
+    if (!window.confirm('Tem certeza que deseja eliminar este plantio? Esta ação não pode ser desfeita.')) return;
+    try {
+      await plantioService.eliminarPlantio(id);
+      setPlantios(prev => prev.filter(p => p._id !== id));
+      if (plantioAtivo?._id === id) setPlantioAtivo(null);
+    } catch (err) {
+      console.error('Erro ao eliminar:', err);
+    }
+  };
+
+  const exportarPDF = () => {
+    if (!plantioAtivo) return;
+    const p = plantioAtivo;
+    const plano = p.plano || {};
+    const inv = plano.investimento || {};
+    const prod = plano.producao || {};
+    const capH = plano.capitalHumano || {};
+    const cronograma = plano.cronograma || [];
+    const riscos = plano.riscos || [];
+
+    const htmlContent = `
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+<meta charset="utf-8">
+<title>Relatório de Plantio - ${p.nome}</title>
+<style>
+  body { font-family: 'Segoe UI', Arial, sans-serif; max-width: 800px; margin: 0 auto; padding: 20px; color: #333; }
+  h1 { color: #003366; border-bottom: 3px solid #4A7C59; padding-bottom: 10px; font-size: 1.5rem; }
+  h2 { color: #4A7C59; margin-top: 24px; font-size: 1.1rem; border-left: 4px solid #4A7C59; padding-left: 10px; }
+  table { width: 100%; border-collapse: collapse; margin: 12px 0; font-size: 0.85rem; }
+  th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+  th { background: #f5f5f5; font-weight: 600; }
+  .total { font-weight: 700; background: #e8f5e9; }
+  .risco-item { padding: 8px; margin: 4px 0; border-radius: 6px; font-size: 0.85rem; }
+  .risco-clima { background: #fff8e1; border-left: 3px solid #f59e0b; }
+  .risco-praga { background: #ffebee; border-left: 3px solid #ef4444; }
+  .risco-doenca { background: #f3e5f5; border-left: 3px solid #8b5cf6; }
+  .fase-item { display: flex; align-items: center; gap: 8px; padding: 6px 0; border-bottom: 1px solid #eee; }
+  .status-badge { padding: 2px 8px; border-radius: 10px; font-size: 0.75rem; font-weight: 600; }
+  .status-concluido { background: #e8f5e9; color: #4A7C59; }
+  .status-andamento { background: #e3f2fd; color: #3b82f6; }
+  .status-pendente { background: #f5f5f5; color: #94a3b8; }
+  .header-meta { display: flex; gap: 20px; font-size: 0.85rem; color: #666; margin: 8px 0 16px; }
+  @media print { body { padding: 0; } }
+</style>
+</head>
+<body>
+<h1>🌾 Relatório de Plantio</h1>
+<div class="header-meta">
+  <span><strong>Nome:</strong> ${p.nome}</span>
+  <span><strong>Cultura:</strong> ${p.cultura}</span>
+  ${p.provincia ? `<span><strong>Província:</strong> ${p.provincia}</span>` : ''}
+  ${p.area ? `<span><strong>Área:</strong> ${p.area} ha</span>` : ''}
+  ${p.orcamento ? `<span><strong>Orçamento:</strong> ${Number(p.orcamento).toLocaleString()} Kz</span>` : ''}
+  <span><strong>Status:</strong> ${p.status === 'concluido' ? 'Concluído' : p.status === 'cancelado' ? 'Cancelado' : 'Em curso'}</span>
+</div>
+
+<h2>📊 Progresso das Fases</h2>
+<table>
+  <thead><tr><th>Fase</th><th>Status</th><th>Observações</th></tr></thead>
+  <tbody>
+    ${(p.fases || []).map(f => `
+      <tr>
+        <td>${f.nome}</td>
+        <td><span class="status-badge status-${f.status === 'concluido' ? 'concluido' : f.status === 'em_andamento' ? 'andamento' : 'pendente'}">${f.status === 'concluido' ? '✅ Concluído' : f.status === 'em_andamento' ? '⏳ Em andamento' : f.status === 'pulado' ? '⏭️ Pulado' : '⭕ Pendente'}</span></td>
+        <td>${f.observacoes || '-'}</td>
+      </tr>
+    `).join('')}
+  </tbody>
+</table>
+
+${inv.total ? `
+<h2>💰 Investimento</h2>
+<table>
+  <thead><tr><th>Item</th><th style="text-align:right">Custo (Kz)</th><th style="text-align:right">%</th></tr></thead>
+  <tbody>
+    ${inv.sementes ? `<tr><td>Sementes</td><td style="text-align:right">${Number(inv.sementes).toLocaleString()}</td><td style="text-align:right">20%</td></tr>` : ''}
+    ${inv.fertilizantes ? `<tr><td>Fertilizantes</td><td style="text-align:right">${Number(inv.fertilizantes).toLocaleString()}</td><td style="text-align:right">25%</td></tr>` : ''}
+    ${inv.defensivos ? `<tr><td>Defensivos</td><td style="text-align:right">${Number(inv.defensivos).toLocaleString()}</td><td style="text-align:right">10%</td></tr>` : ''}
+    ${inv.maoObra ? `<tr><td>Mão de obra</td><td style="text-align:right">${Number(inv.maoObra).toLocaleString()}</td><td style="text-align:right">25%</td></tr>` : ''}
+    ${inv.maquinario ? `<tr><td>Maquinário</td><td style="text-align:right">${Number(inv.maquinario).toLocaleString()}</td><td style="text-align:right">10%</td></tr>` : ''}
+    ${inv.imprevistos ? `<tr><td>Imprevistos</td><td style="text-align:right">${Number(inv.imprevistos).toLocaleString()}</td><td style="text-align:right">10%</td></tr>` : ''}
+    <tr class="total"><td>TOTAL</td><td style="text-align:right">${Number(inv.total).toLocaleString()} Kz</td><td style="text-align:right">100%</td></tr>
+  </tbody>
+</table>
+` : ''}
+
+${prod.areaTotalHa ? `
+<h2>📈 Produção Estimada</h2>
+<table>
+  <tbody>
+    <tr><td>Produtividade</td><td>${prod.produtividadeTonHa || 0} ton/ha</td></tr>
+    <tr><td>Área total</td><td>${prod.areaTotalHa} ha</td></tr>
+    <tr><td>Produção total</td><td>${prod.ProducaoTotalTon || 0} ton</td></tr>
+    <tr><td>Renda bruta estimada</td><td>${Number(prod.rendaBrutaEstimada || 0).toLocaleString()} Kz</td></tr>
+    <tr class="total"><td>Lucro estimado</td><td>${Number(prod.lucroEstimado || 0).toLocaleString()} Kz</td></tr>
+  </tbody>
+</table>
+` : ''}
+
+${capH.total ? `
+<h2>👥 Capital Humano</h2>
+<table>
+  <tbody>
+    <tr><td>Trabalhadores permanentes</td><td>${capH.trabalhadoresPermanentes || 0}</td></tr>
+    <tr><td>Trabalhadores sazonais</td><td>${capH.trabalhadoresSazonais || 0}</td></tr>
+    <tr><td>Técnicos/operadores</td><td>${capH.tecnicosOperadores || 0}</td></tr>
+    <tr class="total"><td>Total</td><td>${capH.total} pessoas</td></tr>
+  </tbody>
+</table>
+` : ''}
+
+${cronograma.length ? `
+<h2>📅 Cronograma</h2>
+<table>
+  <thead><tr><th>Atividade</th><th>Início</th><th>Fim</th><th style="text-align:right">Dias</th></tr></thead>
+  <tbody>
+    ${cronograma.map(c => `<tr><td>${c.atividade}</td><td>${new Date(c.inicio).toLocaleDateString('pt-PT')}</td><td>${new Date(c.fim).toLocaleDateString('pt-PT')}</td><td style="text-align:right">${c.dias}</td></tr>`).join('')}
+  </tbody>
+</table>
+` : ''}
+
+${riscos.length ? `
+<h2>⚠️ Análise de Riscos</h2>
+${riscos.map(r => `
+  <div class="risco-item risco-${r.tipo === 'climatico' ? 'clima' : r.tipo === 'praga' ? 'praga' : 'doenca'}">
+    <strong>${r.tipo === 'climatico' ? '☀️' : r.tipo === 'praga' ? '🐛' : '🍄'} ${r.descricao}</strong><br>
+    <small>Mitigação: ${r.mitigacao}</small>
+  </div>
+`).join('')}
+` : ''}
+
+<div style="margin-top: 30px; padding-top: 10px; border-top: 2px solid #4A7C59; font-size: 0.8rem; color: #999; text-align: center">
+  Prognos Agri 2.0 — Relatório gerado em ${new Date().toLocaleDateString('pt-PT')} às ${new Date().toLocaleTimeString('pt-PT')}
+</div>
+</body></html>`;
+
+    const printWindow = window.open('', '_blank');
+    printWindow.document.write(htmlContent);
+    printWindow.document.close();
+    printWindow.focus();
+    setTimeout(() => { printWindow.print(); }, 500);
   };
 
   const progresso = plantioAtivo
@@ -564,7 +711,7 @@ export default function GestaoPlantioPage() {
                 {plantioAtivo.area && ` • ${plantioAtivo.area} ha`}
               </div>
             </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
               <div style={{
                 padding: '4px 14px', borderRadius: '50px', fontSize: '0.8rem', fontWeight: 600,
                 background: plantioAtivo.status === 'concluido' ? 'rgba(74,124,89,0.15)' :
@@ -579,22 +726,29 @@ export default function GestaoPlantioPage() {
                  plantioAtivo.status === 'concluido' ? 'Concluído' :
                  plantioAtivo.status === 'cancelado' ? 'Cancelado' : 'Arquivado'}
               </div>
-              {(!plantioAtivo.status || plantioAtivo.status === 'ativo') && (
-                <>
-                  <button className="btn btn-sm btn-ghost" onClick={() => { setEditForm(plantioAtivo); setShowEdit(true); }} title="Editar">
-                    <Edit3 size={14} />
-                  </button>
-                  <button className="btn btn-sm btn-ghost" onClick={() => handleMudarStatus('concluido')} title="Concluir">
-                    <CheckCircle2 size={14} color="#4A7C59" />
-                  </button>
-                  <button className="btn btn-sm btn-ghost" onClick={() => handleMudarStatus('arquivado')} title="Arquivar">
-                    <Archive size={14} />
-                  </button>
-                  <button className="btn btn-sm btn-ghost" onClick={() => { if (window.confirm('Cancelar este plantio?')) handleMudarStatus('cancelado'); }} title="Cancelar">
-                    <Ban size={14} color="#ef4444" />
-                  </button>
-                </>
+              {plantioAtivo.plano && (
+                <button className="btn btn-sm btn-ghost" onClick={() => setShowPlanoDetalhes(!showPlanoDetalhes)} title="Ver dados do plano IA">
+                  <FileText size={14} /> {showPlanoDetalhes ? 'Ocultar' : 'Ver Plano'}
+                </button>
               )}
+              <button className="btn btn-sm btn-ghost" onClick={exportarPDF} title="Exportar PDF">
+                <Download size={14} /> PDF
+              </button>
+              <button className="btn btn-sm btn-ghost" onClick={() => { setEditForm(plantioAtivo); setShowEdit(true); }} title="Editar">
+                <Edit3 size={14} />
+              </button>
+              <button className="btn btn-sm btn-ghost" onClick={() => handleMudarStatus('concluido')} title="Concluir">
+                <CheckCircle2 size={14} color="#4A7C59" />
+              </button>
+              <button className="btn btn-sm btn-ghost" onClick={() => handleMudarStatus('arquivado')} title="Arquivar">
+                <Archive size={14} />
+              </button>
+              <button className="btn btn-sm btn-ghost" onClick={() => { if (window.confirm('Cancelar este plantio?')) handleMudarStatus('cancelado'); }} title="Cancelar">
+                <Ban size={14} color="#ef4444" />
+              </button>
+              <button className="btn btn-sm btn-ghost" onClick={() => handleEliminarPlantio(plantioAtivo._id)} title="Eliminar" style={{ color: '#ef4444' }}>
+                <Trash2 size={14} />
+              </button>
             </div>
           </div>
           <div style={{ height: '8px', background: 'var(--bg-body)', borderRadius: '4px', overflow: 'hidden' }}>
@@ -695,6 +849,153 @@ export default function GestaoPlantioPage() {
           })}
         </div>
 
+        {showPlanoDetalhes && plantioAtivo.plano && (() => {
+          const plano = plantioAtivo.plano;
+          const inv = plano.investimento || {};
+          const prod = plano.producao || {};
+          const capH = plano.capitalHumano || {};
+          const cronograma = plano.cronograma || [];
+          const riscos = plano.riscos || [];
+          const invItens = [
+            { nome: 'Sementes', custo: inv.sementes, pct: 20, cor: '#4A7C59' },
+            { nome: 'Fertilizantes', custo: inv.fertilizantes, pct: 25, cor: '#3b82f6' },
+            { nome: 'Defensivos', custo: inv.defensivos, pct: 10, cor: '#ef4444' },
+            { nome: 'Mão de obra', custo: inv.maoObra, pct: 25, cor: '#f59e0b' },
+            { nome: 'Maquinário', custo: inv.maquinario, pct: 10, cor: '#8b5cf6' },
+            { nome: 'Imprevistos', custo: inv.imprevistos, pct: 10, cor: '#64748b' }
+          ].filter(i => i.custo);
+
+          return (
+            <div style={{ display: 'grid', gap: '16px', marginTop: '16px' }}>
+              {plano.recomendacaoLocalizacao && (
+                <PrognosCard title="📍 Recomendação de Localização">
+                  <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', lineHeight: 1.6 }}>{plano.recomendacaoLocalizacao}</p>
+                </PrognosCard>
+              )}
+
+              {inv.total ? (
+                <PrognosCard title="💰 Investimento" icon={<DollarSign size={18} />}>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', alignItems: 'start' }}>
+                    <div>
+                      <table style={{ width: '100%', fontSize: '0.85rem', borderCollapse: 'collapse' }}>
+                        <thead>
+                          <tr style={{ borderBottom: '2px solid var(--border)' }}>
+                            <th style={{ textAlign: 'left', padding: '6px 4px' }}>Item</th>
+                            <th style={{ textAlign: 'right', padding: '6px 4px' }}>Custo (Kz)</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {invItens.map((item, i) => (
+                            <tr key={i} style={{ borderBottom: '1px solid var(--border)' }}>
+                              <td style={{ padding: '6px 4px' }}>{item.nome}</td>
+                              <td style={{ textAlign: 'right', padding: '6px 4px' }}>{Number(item.custo).toLocaleString()}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                        <tfoot>
+                          <tr style={{ fontWeight: 700, borderTop: '2px solid var(--primary)' }}>
+                            <td style={{ padding: '6px 4px' }}>TOTAL</td>
+                            <td style={{ textAlign: 'right', padding: '6px 4px', color: 'var(--primary)' }}>{Number(inv.total).toLocaleString()} Kz</td>
+                          </tr>
+                        </tfoot>
+                      </table>
+                    </div>
+                    <div>
+                      <PieChartCSS data={invItens.map(i => ({ label: i.nome, valor: i.custo, cor: i.cor }))} size={140} />
+                    </div>
+                  </div>
+                </PrognosCard>
+              ) : null}
+
+              {(capH.total || prod.areaTotalHa) ? (
+                <div className="grid-2" style={{ gap: '16px' }}>
+                  {capH.total ? (
+                    <PrognosCard title="👥 Capital Humano" icon={<Users size={18} />}>
+                      <div style={{ display: 'grid', gap: '8px', fontSize: '0.85rem' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0', borderBottom: '1px solid var(--border)' }}>
+                          <span>Trabalhadores permanentes</span><strong>{capH.trabalhadoresPermanentes || 0}</strong>
+                        </div>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0', borderBottom: '1px solid var(--border)' }}>
+                          <span>Trabalhadores sazonais</span><strong>{capH.trabalhadoresSazonais || 0}</strong>
+                        </div>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0', borderBottom: '1px solid var(--border)' }}>
+                          <span>Técnicos/operadores</span><strong>{capH.tecnicosOperadores || 0}</strong>
+                        </div>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0', fontWeight: 700 }}>
+                          <span>Total</span><strong style={{ color: 'var(--primary)' }}>{capH.total}</strong>
+                        </div>
+                      </div>
+                    </PrognosCard>
+                  ) : null}
+
+                  {prod.areaTotalHa ? (
+                    <PrognosCard title="📈 Produção Estimada" icon={<TrendingUp size={18} />}>
+                      <div style={{ display: 'grid', gap: '8px', fontSize: '0.85rem' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0', borderBottom: '1px solid var(--border)' }}>
+                          <span>Produtividade</span><strong>{prod.produtividadeTonHa || 0} ton/ha</strong>
+                        </div>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0', borderBottom: '1px solid var(--border)' }}>
+                          <span>Área total</span><strong>{prod.areaTotalHa} ha</strong>
+                        </div>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0', borderBottom: '1px solid var(--border)' }}>
+                          <span>Produção total</span><strong>{prod.ProducaoTotalTon || 0} ton</strong>
+                        </div>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0', borderBottom: '1px solid var(--border)' }}>
+                          <span>Renda bruta</span><strong style={{ color: '#4A7C59' }}>{Number(prod.rendaBrutaEstimada || 0).toLocaleString()} Kz</strong>
+                        </div>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0' }}>
+                          <span>Lucro estimado</span><strong style={{ color: '#10b981' }}>{Number(prod.lucroEstimado || 0).toLocaleString()} Kz</strong>
+                        </div>
+                      </div>
+                      {inv.total ? (
+                        <div style={{ marginTop: '12px' }}>
+                          <BarChart data={[
+                            { label: 'Investimento', valor: inv.total || 0, cor: '#3b82f6' },
+                            { label: 'Renda Bruta', valor: prod.rendaBrutaEstimada || 0, cor: '#4A7C59' },
+                            { label: 'Lucro', valor: prod.lucroEstimado || 0, cor: '#10b981' }
+                          ]} height={120} />
+                        </div>
+                      ) : null}
+                    </PrognosCard>
+                  ) : null}
+                </div>
+              ) : null}
+
+              {cronograma.length ? (
+                <PrognosCard title="📅 Cronograma" icon={<Calendar size={18} />}>
+                  <GanttChart tasks={cronograma} />
+                </PrognosCard>
+              ) : null}
+
+              {riscos.length ? (
+                <PrognosCard title="⚠️ Análise de Riscos" icon={<AlertTriangle size={18} />}>
+                  <div className="grid-3" style={{ gap: '12px' }}>
+                    {[
+                      { tipo: 'climatico', label: '🌤️ Riscos Climáticos', cor: '#f59e0b' },
+                      { tipo: 'praga', label: '🐛 Pragas', cor: '#ef4444' },
+                      { tipo: 'doenca', label: '🍄 Doenças', cor: '#8b5cf6' }
+                    ].map(({ tipo, label, cor }) => {
+                      const itens = riscos.filter(r => r.tipo === tipo);
+                      if (!itens.length) return null;
+                      return (
+                        <div key={tipo}>
+                          <h4 style={{ fontSize: '0.8rem', fontWeight: 600, marginBottom: '8px', color: cor }}>{label}</h4>
+                          {itens.map((r, i) => (
+                            <div key={i} style={{ padding: '8px', background: `${cor}10`, borderRadius: '8px', marginBottom: '6px', fontSize: '0.8rem' }}>
+                              <strong>{r.descricao}</strong>
+                              <div style={{ color: 'var(--text-secondary)', fontSize: '0.75rem' }}>{r.mitigacao}</div>
+                            </div>
+                          ))}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </PrognosCard>
+              ) : null}
+            </div>
+          );
+        })()}
+
         {showEdit && (
           <div className="modal-overlay" onClick={() => setShowEdit(false)}>
             <div className="modal-content" onClick={e => e.stopPropagation()}>
@@ -720,6 +1021,10 @@ export default function GestaoPlantioPage() {
                 <input className="input" placeholder="Província" value={editForm.provincia || ''} onChange={e => setEditForm({ ...editForm, provincia: e.target.value })} />
                 <input className="input" placeholder="Município" value={editForm.municipio || ''} onChange={e => setEditForm({ ...editForm, municipio: e.target.value })} />
                 <input className="input" type="number" placeholder="Área (ha)" value={editForm.area || ''} onChange={e => setEditForm({ ...editForm, area: e.target.value })} />
+                <input className="input" type="number" placeholder="Orçamento (Kz)" value={editForm.orcamento || ''} onChange={e => setEditForm({ ...editForm, orcamento: e.target.value })} />
+                <input className="input" type="date" placeholder="Data de início" value={editForm.dataInicio ? editForm.dataInicio.substring(0, 10) : ''} onChange={e => setEditForm({ ...editForm, dataInicio: e.target.value })} />
+                <input className="input" type="number" placeholder="Produção real (ton)" value={editForm.producaoReal || ''} onChange={e => setEditForm({ ...editForm, producaoReal: e.target.value })} />
+                <input className="input" type="number" placeholder="Receita real (Kz)" value={editForm.receitaReal || ''} onChange={e => setEditForm({ ...editForm, receitaReal: e.target.value })} />
               </div>
               <div style={{ display: 'flex', gap: '12px', padding: '0 16px 16px' }}>
                 <button className="btn btn-primary" style={{ flex: 1 }} onClick={handleAtualizarPlantio}>
@@ -870,27 +1175,33 @@ export default function GestaoPlantioPage() {
           </div>
           <div className="grid-2" style={{ gap: '16px' }}>
             {plantios.map(p => (
-              <PrognosCard key={p._id} style={{ cursor: 'pointer' }} onClick={() => setPlantioAtivo(p)}>
+              <PrognosCard key={p._id} style={{ cursor: 'pointer', position: 'relative' }} onClick={() => setPlantioAtivo(p)}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                   <div>
                     <h3 style={{ fontWeight: 600, marginBottom: '4px' }}>{p.nome}</h3>
                     <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>
                       {p.cultura} {p.provincia && `• ${p.provincia}`} {p.area && `• ${p.area} ha`}
                     </div>
+                    {p.plano && <span style={{ fontSize: '0.7rem', color: '#8b5cf6', fontWeight: 600 }}>✨ Plano IA</span>}
                   </div>
-                  <div style={{
-                    padding: '4px 12px', borderRadius: '50px', fontSize: '0.8rem', fontWeight: 600,
-                    background: p.status === 'concluido' ? 'rgba(74,124,89,0.15)' :
-                                p.status === 'cancelado' ? 'rgba(239,68,68,0.15)' :
-                                p.status === 'arquivado' ? 'rgba(100,116,139,0.15)' :
-                                'rgba(59,130,246,0.15)',
-                    color: p.status === 'concluido' ? '#4A7C59' :
-                           p.status === 'cancelado' ? '#ef4444' :
-                           p.status === 'arquivado' ? '#64748b' : '#3b82f6'
-                  }}>
-                    {p.status === 'concluido' ? 'Concluído' :
-                     p.status === 'cancelado' ? 'Cancelado' :
-                     p.status === 'arquivado' ? 'Arquivado' : 'Em curso'}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <div style={{
+                      padding: '4px 12px', borderRadius: '50px', fontSize: '0.8rem', fontWeight: 600,
+                      background: p.status === 'concluido' ? 'rgba(74,124,89,0.15)' :
+                                  p.status === 'cancelado' ? 'rgba(239,68,68,0.15)' :
+                                  p.status === 'arquivado' ? 'rgba(100,116,139,0.15)' :
+                                  'rgba(59,130,246,0.15)',
+                      color: p.status === 'concluido' ? '#4A7C59' :
+                             p.status === 'cancelado' ? '#ef4444' :
+                             p.status === 'arquivado' ? '#64748b' : '#3b82f6'
+                    }}>
+                      {p.status === 'concluido' ? 'Concluído' :
+                       p.status === 'cancelado' ? 'Cancelado' :
+                       p.status === 'arquivado' ? 'Arquivado' : 'Em curso'}
+                    </div>
+                    <button className="btn btn-sm btn-ghost" onClick={(e) => { e.stopPropagation(); handleEliminarPlantio(p._id); }} title="Eliminar" style={{ color: '#ef4444', padding: '4px' }}>
+                      <Trash2 size={14} />
+                    </button>
                   </div>
                 </div>
                 {(!p.status || p.status !== 'cancelado') && (
