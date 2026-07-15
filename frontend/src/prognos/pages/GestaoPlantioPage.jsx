@@ -387,8 +387,9 @@ export default function GestaoPlantioPage() {
       doc.text(`Area: ${p.area ? p.area + ' ha' : '-'} | Orcamento: ${p.orcamento ? fN(p.orcamento) + ' Kz' : '-'}`, pw / 2, 152, { align: 'center' });
 
       const statusText = p.status === 'concluido' ? 'CONCLUIDO' : p.status === 'cancelado' ? 'CANCELADO' : p.status === 'arquivado' ? 'ARQUIVADO' : 'EM CURSO';
+      const statusColor = p.status === 'concluido' ? GREEN : p.status === 'cancelado' ? [220, 38, 38] : [59, 130, 246];
       doc.setFontSize(12); doc.setFont('helvetica', 'bold');
-      doc.setTextColor(p.status === 'concluido' ? GREEN : p.status === 'cancelado' ? [220, 38, 38] : [59, 130, 246]);
+      doc.setTextColor(statusColor[0], statusColor[1], statusColor[2]);
       doc.text(statusText, pw / 2, 168, { align: 'center' });
 
       doc.setFontSize(9); doc.setFont('helvetica', 'normal'); doc.setTextColor(...GRAY);
