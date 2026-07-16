@@ -196,7 +196,7 @@ export default function Dashboard() {
       {/* Resumo Plantios + Pragas */}
       <div className="grid-3" style={{ marginTop: '16px' }}>
         <PrognosCard title="Estado dos Plantios" icon={<BarChart3 size={18} />}>
-          {totalPlantios > 0 ? (
+          {resumo.totalPlantios > 0 ? (
             <div style={{ display: 'grid', gap: '8px', fontSize: '0.85rem' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0', borderBottom: '1px solid var(--border)' }}>
                 <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}><Clock size={14} color="#3b82f6" /> Em curso</span>
