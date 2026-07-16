@@ -32,6 +32,16 @@ const errorHandler = require("./middleware/errorHandler");
 
 const app = express();
 const server = http.createServer(app);
+
+const defaultOrigins = [
+  'http://localhost:3000',
+  'https://prognosagri.vercel.app',
+  'https://prognos-agri-frontend.onrender.com',
+  'https://prognos-agri.onrender.com'
+];
+const envOrigins = (process.env.FRONTEND_URL || '').split(',').map(s => s.trim()).filter(Boolean);
+const allowedOrigins = [...new Set([...defaultOrigins, ...envOrigins])];
+
 const io = new Server(server, {
   cors: {
     origin: function (origin, callback) {
@@ -48,15 +58,6 @@ const setupSocket = require('./socketHandler');
 setupSocket(io);
 app.set('io', io);
 const PORT = process.env.PORT || 5000;
-
-const defaultOrigins = [
-  'http://localhost:3000',
-  'https://prognosagri.vercel.app',
-  'https://prognos-agri-frontend.onrender.com',
-  'https://prognos-agri.onrender.com'
-];
-const envOrigins = (process.env.FRONTEND_URL || '').split(',').map(s => s.trim()).filter(Boolean);
-const allowedOrigins = [...new Set([...defaultOrigins, ...envOrigins])];
 
 const corsOptions = {
   origin: function (origin, callback) {

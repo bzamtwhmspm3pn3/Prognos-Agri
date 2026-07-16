@@ -7,26 +7,14 @@ const modeloController = require('../controllers/modeloController');
 let protect;
 try {
   protect = require('../middleware/auth').protect;
-  console.log('✅ Auth middleware carregado em modelos');
 } catch (error) {
-  console.log('⚠️ Erro ao carregar auth middleware em modelos:', error.message);
   // Fallback
   protect = (req, res, next) => {
-    console.log('⚠️ Usando protect dummy em modelos');
     req.userId = '123456789';
     req.user = { id: '123456789', role: 'agricultor' };
     next();
   };
 }
-
-console.log('🔍 modeloController:', {
-  salvarModelo: typeof modeloController?.salvarModelo,
-  listarModelos: typeof modeloController?.listarModelos,
-  carregarModelo: typeof modeloController?.carregarModelo,
-  alterarStatusModelo: typeof modeloController?.alterarStatusModelo,
-  eliminarModelo: typeof modeloController?.eliminarModelo,
-  getEstatisticas: typeof modeloController?.getEstatisticas
-});
 
 // Todas as rotas de modelos são protegidas
 router.use(protect);
