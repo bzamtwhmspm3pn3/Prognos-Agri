@@ -27,7 +27,6 @@ const profileSchema = new mongoose.Schema({
   },
   identificacao: {
     type: String,
-    unique: true,
     sparse: true,
     trim: true,
     default: ''

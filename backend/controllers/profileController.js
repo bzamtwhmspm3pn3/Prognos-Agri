@@ -17,22 +17,26 @@ const getProfile = async (req, res) => {
       if (!user) {
         return res.status(404).json({ success: false, message: 'Utilizador não encontrado' });
       }
-      profile = await Profile.create({
-        user: userId,
-        nome: user.username,
-        email: user.email,
-        tipo: 'individual',
-        status: 'activo',
-        executacoesUsadas: 0,
-        limiteExecucoes: 50
-      });
-      profile = await Profile.findOne({ user: userId }).populate('user', 'username email role');
+      try {
+        profile = await Profile.create({
+          user: userId,
+          nome: user.username || 'Utilizador',
+          email: user.email,
+          tipo: 'individual',
+          status: 'completo',
+          execucoesUsadas: 0,
+          limiteExecucoes: 50
+        });
+      } catch (createErr) {
+        console.warn('Profile.create falhou, tentando findOne again:', createErr.message);
+        profile = await Profile.findOne({ user: userId }).populate('user', 'username email role');
+      }
     }
 
     res.json({ success: true, data: profile });
   } catch (error) {
     console.error('Erro getProfile:', error);
-    res.status(500).json({ success: false, message: 'Erro ao carregar perfil' });
+    res.status(500).json({ success: false, message: 'Erro ao carregar perfil', error: error.message });
   }
 };
 
