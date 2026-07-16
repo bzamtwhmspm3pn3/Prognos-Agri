@@ -2,16 +2,18 @@ const Deteccao = require('../models/deteccao');
 const Prediction = require('../models/Prediction');
 const MarketData = require('../models/MarketData');
 const CommunityPost = require('../models/CommunityPost');
+const Plantio = require('../models/Plantio');
 
 const getDashboard = async (req, res, next) => {
   try {
     const userId = req.userId;
 
-    const [deteccoes, previsoes, ofertas, posts] = await Promise.all([
+    const [deteccoes, previsoes, ofertas, posts, plantios] = await Promise.all([
       Deteccao.find({ usuarioId: userId }).sort({ timestamp: -1 }).limit(50),
       Prediction.find({ usuarioId: userId }).sort({ createdAt: -1 }).limit(10),
       MarketData.find({ usuarioId: userId }).sort({ createdAt: -1 }).limit(10),
-      CommunityPost.find({ usuarioId: userId }).sort({ createdAt: -1 }).limit(10)
+      CommunityPost.find({ usuarioId: userId }).sort({ createdAt: -1 }).limit(10),
+      Plantio.find({ usuarioId: userId }).sort({ createdAt: -1 })
     ]);
 
     const totalScans = deteccoes.length;
@@ -43,6 +45,21 @@ const getDashboard = async (req, res, next) => {
       tendenciaDeteccoes.push({ data, quantidade: count });
     });
 
+    // Plantio stats
+    const totalPlantios = plantios.length;
+    const plantiosAtivos = plantios.filter(p => p.status !== 'concluido' && p.status !== 'cancelado' && p.status !== 'arquivado').length;
+    const plantiosConcluidos = plantios.filter(p => p.status === 'concluido').length;
+    const areaTotal = plantios.reduce((acc, p) => acc + (p.area || 0), 0);
+    const investimentoTotal = plantios.reduce((acc, p) => acc + (p.plano?.investimento?.total || p.orcamento || 0), 0);
+    const rendaTotal = plantios.reduce((acc, p) => acc + (p.plano?.producao?.rendaBrutaEstimada || 0), 0);
+    const lucroTotal = plantios.reduce((acc, p) => acc + (p.plano?.producao?.lucroEstimado || 0), 0);
+    const plantiosPorCultura = {};
+    plantios.forEach(p => {
+      const c = p.cultura || 'outro';
+      plantiosPorCultura[c] = (plantiosPorCultura[c] || 0) + 1;
+    });
+    const ultimosPlantios = plantios.slice(0, 5);
+
     res.json({
       success: true,
       data: {
@@ -54,15 +71,26 @@ const getDashboard = async (req, res, next) => {
           areasMonitoradas: [...new Set(deteccoes.map(d => d.localizacao))].length,
           culturasAfetadas: [...new Set(deteccoes.map(d => d.cultura).filter(Boolean))],
           totalPrevisoes: previsoes.length,
-          totalOfertas: ofertas.length
+          totalOfertas: ofertas.length,
+          totalPlantios,
+          plantiosAtivos,
+          plantiosConcluidos,
+          areaTotal,
+          investimentoTotal,
+          rendaTotal,
+          lucroTotal
         },
         pragasPorTipo: Object.entries(pragasPorTipo)
           .map(([nome, quantidade]) => ({ nome, quantidade }))
           .sort((a, b) => b.quantidade - a.quantidade),
         tendenciaDeteccoes,
+        plantiosPorCultura: Object.entries(plantiosPorCultura)
+          .map(([nome, quantidade]) => ({ nome, quantidade }))
+          .sort((a, b) => b.quantidade - a.quantidade),
         ultimasDeteccoes: deteccoes.slice(0, 10),
         ultimasPrevisoes: previsoes.slice(0, 5),
-        ultimasOfertas: ofertas.slice(0, 5)
+        ultimasOfertas: ofertas.slice(0, 5),
+        ultimosPlantios
       }
     });
   } catch (error) {
