@@ -87,18 +87,36 @@ const CameraConfigModal = ({ isOpen, onClose, onSave, cameraEditando }) => {
     setTesteResultado(null);
 
     try {
-      const api = (await import('../../services/api')).default;
-      const res = await api.post('/cameras/test', {
-        url: formData.url,
-        username: formData.username || undefined,
-        password: formData.password || undefined
+      // Tentar conexão direta primeiro (funciona em localhost HTTP)
+      const img = new Image();
+      const timeoutPromise = new Promise((_, reject) => {
+        setTimeout(() => reject(new Error('Timeout')), 5000);
       });
-      setTesteResultado(res.data);
-    } catch (error) {
-      setTesteResultado({ 
-        success: false, 
-        message: `❌ ${error.response?.data?.message || 'Erro ao testar conexão'}` 
+      const loadPromise = new Promise((resolve, reject) => {
+        img.onload = () => resolve(true);
+        img.onerror = () => reject(new Error('Falha'));
+        img.src = formData.url + '?t=' + Date.now();
       });
+      await Promise.race([loadPromise, timeoutPromise]);
+      setTesteResultado({ success: true, message: '✅ Conexão OK!' });
+    } catch {
+      // Se direto falhou (HTTPS/mixed content), tentar via proxy
+      try {
+        const api = (await import('../../services/api')).default;
+        const res = await api.post('/cameras/test', {
+          url: formData.url,
+          username: formData.username || undefined,
+          password: formData.password || undefined
+        });
+        setTesteResultado(res.data.success 
+          ? { success: true, message: '✅ Conexão OK! (via proxy)' }
+          : { success: false, message: `❌ ${res.data.message}` });
+      } catch (error) {
+        setTesteResultado({ 
+          success: false, 
+          message: `❌ ${error.response?.data?.message || 'Falha na conexão'}` 
+        });
+      }
     } finally {
       setTestando(false);
     }
@@ -318,15 +336,31 @@ const CameraCard = ({ camera, onAtivar, onEditar, onRemover, onVerStream }) => {
     setTesteOk(null);
     
     try {
-      const api = (await import('../../services/api')).default;
-      const res = await api.post('/cameras/test', {
-        url: camera.url,
-        username: camera.username || undefined,
-        password: camera.password || undefined
+      // Tentar direto primeiro (localhost HTTP)
+      const img = new Image();
+      const timeoutPromise = new Promise((_, reject) => {
+        setTimeout(() => reject(new Error('Timeout')), 5000);
       });
-      setTesteOk(res.data.success);
+      const loadPromise = new Promise((resolve, reject) => {
+        img.onload = () => resolve(true);
+        img.onerror = () => reject(new Error('Falha'));
+        img.src = camera.url + '?t=' + Date.now();
+      });
+      await Promise.race([loadPromise, timeoutPromise]);
+      setTesteOk(true);
     } catch {
-      setTesteOk(false);
+      // Se falhou, tentar via proxy (Vercel HTTPS)
+      try {
+        const api = (await import('../../services/api')).default;
+        const res = await api.post('/cameras/test', {
+          url: camera.url,
+          username: camera.username || undefined,
+          password: camera.password || undefined
+        });
+        setTesteOk(res.data.success);
+      } catch {
+        setTesteOk(false);
+      }
     } finally {
       setTestando(false);
     }
@@ -509,23 +543,41 @@ const StreamViewer = ({
   const [analisando, setAnalisando] = useState(false);
   const [historicoDeteccoes, setHistoricoDeteccoes] = useState([]);
   const [streamSrc, setStreamSrc] = useState('');
+  const [useProxy, setUseProxy] = useState(false);
   
   const imgRef = useRef(null);
   const canvasRef = useRef(null);
   const intervalRef = useRef(null);
   const streamIntervalRef = useRef(null);
+  const directTestedRef = useRef(false);
 
-  // Build proxy URL and refresh periodically for live stream
+  // Test direct connection on mount, fallback to proxy if fails
+  useEffect(() => {
+    if (camera?.url && !directTestedRef.current) {
+      directTestedRef.current = true;
+      const img = new Image();
+      img.onload = () => setUseProxy(false);
+      img.onerror = () => setUseProxy(true);
+      img.src = camera.url + '?t=' + Date.now();
+      setTimeout(() => {
+        if (!useProxy) setUseProxy(true);
+      }, 4000);
+    }
+  }, [camera?.url]);
+
+  // Build stream URL and refresh periodically
   useEffect(() => {
     if (camera?.url) {
-      const refreshStream = () => {
-        setStreamSrc(getProxyUrl(camera) + '&t=' + Date.now());
+      const getUrl = () => {
+        const base = useProxy ? getProxyUrl(camera) : camera.url;
+        return base + '?t=' + Date.now();
       };
+      const refreshStream = () => setStreamSrc(getUrl());
       refreshStream();
       streamIntervalRef.current = setInterval(refreshStream, (camera.intervalo || 2) * 1000);
       return () => clearInterval(streamIntervalRef.current);
     }
-  }, [camera?.url, camera?.intervalo, camera?.username, camera?.password]);
+  }, [camera?.url, camera?.intervalo, camera?.username, camera?.password, useProxy]);
 
   // Função para capturar frame e analisar com o Python (MODIFICADA)
   const capturarEAnalisar = async () => {
