@@ -31,6 +31,14 @@ const nomesPortugues = {
   'ave': 'Ave'
 };
 
+const getProxyUrl = (camera) => {
+  const apiBase = process.env.REACT_APP_API_URL || '';
+  const params = new URLSearchParams({ url: camera.url });
+  if (camera.username) params.set('username', camera.username);
+  if (camera.password) params.set('password', camera.password);
+  return `${apiBase}/api/cameras/frame?${params.toString()}`;
+};
+
 // Componente para configurar uma câmara (igual ao original)
 const CameraConfigModal = ({ isOpen, onClose, onSave, cameraEditando }) => {
   const [formData, setFormData] = useState({
@@ -79,24 +87,17 @@ const CameraConfigModal = ({ isOpen, onClose, onSave, cameraEditando }) => {
     setTesteResultado(null);
 
     try {
-      const img = new Image();
-      const timeoutPromise = new Promise((_, reject) => {
-        setTimeout(() => reject(new Error('Timeout')), 5000);
+      const api = (await import('../../services/api')).default;
+      const res = await api.post('/cameras/test', {
+        url: formData.url,
+        username: formData.username || undefined,
+        password: formData.password || undefined
       });
-
-      const loadPromise = new Promise((resolve, reject) => {
-        img.onload = () => resolve(true);
-        img.onerror = () => reject(new Error('Falha ao conectar'));
-        img.src = formData.url + '?t=' + Date.now();
-      });
-
-      await Promise.race([loadPromise, timeoutPromise]);
-      setTesteResultado({ success: true, message: '✅ Conexão OK!' });
-      
+      setTesteResultado(res.data);
     } catch (error) {
       setTesteResultado({ 
         success: false, 
-        message: '❌ Falha na conexão. Verifique URL e permissões.' 
+        message: `❌ ${error.response?.data?.message || 'Erro ao testar conexão'}` 
       });
     } finally {
       setTestando(false);
@@ -317,14 +318,13 @@ const CameraCard = ({ camera, onAtivar, onEditar, onRemover, onVerStream }) => {
     setTesteOk(null);
     
     try {
-      const img = new Image();
-      await new Promise((resolve, reject) => {
-        img.onload = resolve;
-        img.onerror = reject;
-        img.src = camera.url + '?t=' + Date.now();
-        setTimeout(() => reject(new Error('Timeout')), 5000);
+      const api = (await import('../../services/api')).default;
+      const res = await api.post('/cameras/test', {
+        url: camera.url,
+        username: camera.username || undefined,
+        password: camera.password || undefined
       });
-      setTesteOk(true);
+      setTesteOk(res.data.success);
     } catch {
       setTesteOk(false);
     } finally {
@@ -508,10 +508,24 @@ const StreamViewer = ({
   const [contador, setContador] = useState(0);
   const [analisando, setAnalisando] = useState(false);
   const [historicoDeteccoes, setHistoricoDeteccoes] = useState([]);
+  const [streamSrc, setStreamSrc] = useState('');
   
   const imgRef = useRef(null);
   const canvasRef = useRef(null);
   const intervalRef = useRef(null);
+  const streamIntervalRef = useRef(null);
+
+  // Build proxy URL and refresh periodically for live stream
+  useEffect(() => {
+    if (camera?.url) {
+      const refreshStream = () => {
+        setStreamSrc(getProxyUrl(camera) + '&t=' + Date.now());
+      };
+      refreshStream();
+      streamIntervalRef.current = setInterval(refreshStream, (camera.intervalo || 2) * 1000);
+      return () => clearInterval(streamIntervalRef.current);
+    }
+  }, [camera?.url, camera?.intervalo, camera?.username, camera?.password]);
 
   // Função para capturar frame e analisar com o Python (MODIFICADA)
   const capturarEAnalisar = async () => {
@@ -723,7 +737,8 @@ const StreamViewer = ({
           <>
             <img
               ref={imgRef}
-              src={camera.url}
+              src={streamSrc}
+              crossOrigin="anonymous"
               style={{
                 maxWidth: '100%',
                 maxHeight: '100%',
