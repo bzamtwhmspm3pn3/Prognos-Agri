@@ -50,6 +50,19 @@ cp .env.example .env
 npm run dev
 ```
 
+### Conta de Acesso Rápido (Demo)
+Na página de login existe o botão **"Acesso rápido de teste (demo)"** que entra directamente numa conta de demonstração.
+
+Credenciais da conta demo (para uso manual):
+- **Email:** `demo@prognosagri.com`
+- **Password:** `demo1234`
+
+Para (re)criar a conta demo no banco de dados:
+```bash
+cd backend
+npm run seed:demo
+```
+
 ### Backend Python
 ```bash
 cd backend/python

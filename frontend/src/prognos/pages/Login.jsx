@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { Eye, EyeOff, LogIn, UserPlus } from 'lucide-react';
+import { Eye, EyeOff, LogIn, UserPlus, Zap } from 'lucide-react';
 import { usePrognos } from '../contexts/PrognosContext';
 import { login as loginService, register as registerService } from '../../services/auth';
 import logoHeader from '../../assets/logo-header.png';
@@ -64,6 +64,26 @@ export default function Login() {
       }
     } catch (err) {
       setError(err.response?.data?.message || 'Erro ao autenticar. Verifique seus dados.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleDemoLogin = async () => {
+    setError('');
+    setSuccess('');
+    setLoading(true);
+    try {
+      const result = await loginService('demo@prognosagri.com', 'demo1234');
+      if (result.success) {
+        setSuccess('Entrando na conta de demonstração...');
+        setTimeout(() => {
+          login(result.user, result.token);
+          navigate('/app/dashboard');
+        }, 800);
+      }
+    } catch (err) {
+      setError(err.response?.data?.message || 'Erro ao acessar a conta de demonstração.');
     } finally {
       setLoading(false);
     }
@@ -179,6 +199,36 @@ export default function Login() {
               <>{isRegister ? 'Criar Conta' : 'Entrar'} {isRegister ? <UserPlus size={18} /> : <LogIn size={18} />}</>
             )}
           </button>
+
+          {!isRegister && (
+            <button
+              type="button"
+              onClick={handleDemoLogin}
+              disabled={loading}
+              style={{
+                width: '100%',
+                padding: '12px',
+                backgroundColor: '#E8F0E8',
+                color: '#4A7C59',
+                border: '1.5px dashed #4A7C59',
+                borderRadius: '10px',
+                fontSize: '0.95rem',
+                fontWeight: 600,
+                cursor: loading ? 'not-allowed' : 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '8px',
+                transition: 'all 0.2s',
+                opacity: loading ? 0.6 : 1
+              }}
+              onMouseEnter={(e) => { if (!loading) e.currentTarget.style.backgroundColor = '#d9ead9'; }}
+              onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = '#E8F0E8'; }}
+            >
+              <Zap size={16} />
+              Acesso rápido de teste (demo)
+            </button>
+          )}
         </form>
 
         <div style={{ textAlign: 'center', marginTop: '24px' }}>
