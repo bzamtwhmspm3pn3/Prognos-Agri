@@ -1,4 +1,4 @@
-const CACHE_NAME = 'prognos-agri-v2';
+const CACHE_NAME = 'prognos-agri-v3';
 const ASSETS_TO_CACHE = [
   '/',
   '/manifest.json',
@@ -41,30 +41,29 @@ self.addEventListener('message', (event) => {
 self.addEventListener('fetch', (event) => {
   if (event.request.method !== 'GET') return;
   if (event.request.url.includes('/api/')) return;
+
+  const isNavigation = event.request.mode === 'navigate';
+
   event.respondWith(
-    caches.match(event.request).then((cachedResponse) => {
-      if (cachedResponse) {
-        return cachedResponse;
-      }
-      return fetch(event.request)
-        .then((response) => {
-          if (!response || response.status !== 200 || response.type !== 'basic') {
-            return response;
-          }
-          const responseToCache = response.clone();
-          caches.open(CACHE_NAME).then((cache) => {
-            if (event.request.url.startsWith(self.location.origin)) {
-              cache.put(event.request, responseToCache);
-            }
-          });
+    fetch(event.request)
+      .then((response) => {
+        if (!response || response.status !== 200 || response.type !== 'basic') {
           return response;
-        })
-        .catch(() => {
-          if (event.request.mode === 'navigate') {
-            return caches.match('/');
+        }
+        const responseToCache = response.clone();
+        caches.open(CACHE_NAME).then((cache) => {
+          if (event.request.url.startsWith(self.location.origin)) {
+            cache.put(event.request, responseToCache);
           }
-          return new Response('Offline', { status: 503 });
         });
-    })
+        return response;
+      })
+      .catch(() => {
+        if (isNavigation) {
+          return caches.match('/');
+        }
+        return caches.match(event.request)
+          .then((cachedResponse) => cachedResponse || new Response('Offline', { status: 503 }));
+      })
   );
 });
